@@ -1,11 +1,13 @@
+'use client'
+
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Suspense } from 'react'
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/client'
 import NotificationList from './NotificationList'
 
 async function NotificationsData() {
-  const supabase = await createClient()
+  const supabase = createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   
   if (authError || !user) {

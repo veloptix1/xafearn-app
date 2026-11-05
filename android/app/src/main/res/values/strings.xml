@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">XAFEARN</string>
+    <string name="title_activity_main">XAFEARN</string>
+    <string name="package_name">com.xafearn.app</string>
+    <string name="custom_url_scheme">com.xafearn.app</string>
+</resources>
