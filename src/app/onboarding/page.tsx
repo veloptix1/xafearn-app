@@ -1,4 +1,5 @@
 'use client'
+
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -19,6 +20,11 @@ export default function OnboardingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // 🛡️ SÉCURITÉ : Validations
+    if (!/^[0-9]{8,15}$/.test(whatsapp.replace(/\s/g, ''))) return setError('Numéro WhatsApp invalide.')
+    if (city.trim().length < 2) return setError('Ville invalide.')
+    
     setLoading(true)
     setError(null)
 
@@ -32,11 +38,11 @@ export default function OnboardingPage() {
       .from('profiles')
       .update({
         role,
-        city,
-        neighborhood,
-        whatsapp,
+        city: city.trim(),
+        neighborhood: neighborhood.trim(),
+        whatsapp: whatsapp.replace(/\s/g, ''),
         activity_sector: activitySector,
-        business_name: businessName,
+        business_name: businessName.trim(),
         is_onboarded: true,
       })
       .eq('id', user.id)
@@ -52,48 +58,48 @@ export default function OnboardingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-lg bg-white border border-slate-200 p-8 rounded-3xl shadow-sm">
-        <div className="text-center mb-8">
-          <img src="/logo.png" alt="XAFEARN" className="h-10 w-auto object-contain mx-auto mb-4" />
-          <h1 className="text-2xl font-black text-slate-900 mb-2">Finalise ton profil</h1>
-          <p className="text-slate-500 text-sm">Ces informations nous aident à personnaliser ton expérience.</p>
+    <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-lg bg-white border border-slate-200 p-6 rounded-3xl shadow-sm">
+        <div className="text-center mb-6">
+          <img src="/logo.png" alt="XAFEARN" className="h-10 w-auto object-contain mx-auto mb-3" />
+          <h1 className="text-xl font-black text-slate-900 mb-1">Finalise ton profil</h1>
+          <p className="text-slate-500 text-xs">Ces infos nous aident à personnaliser ton expérience.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Je suis ici pour...</label>
+            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Je suis ici pour...</label>
             <div className="flex bg-slate-100 p-1 rounded-xl">
-              <button type="button" onClick={() => setRole('diffuseur')} className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition ${role === 'diffuseur' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}>Gagner de l'argent</button>
-              <button type="button" onClick={() => setRole('annonceur')} className={`flex-1 py-2.5 rounded-lg text-sm font-semibold transition ${role === 'annonceur' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}>Lancer des pubs</button>
+              <button type="button" onClick={() => setRole('diffuseur')} className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition ${role === 'diffuseur' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}>Gagner de l'argent</button>
+              <button type="button" onClick={() => setRole('annonceur')} className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition ${role === 'annonceur' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}>Lancer des pubs</button>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Ville</label>
-              <input type="text" required value={city} onChange={e => setCity(e.target.value)} placeholder="Ex: Douala" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 placeholder-slate-400" />
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Ville</label>
+              <input type="text" required value={city} onChange={e => setCity(e.target.value)} placeholder="Ex: Douala" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 text-sm" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">Quartier</label>
-              <input type="text" required value={neighborhood} onChange={e => setNeighborhood(e.target.value)} placeholder="Ex: Bonapriso" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 placeholder-slate-400" />
+              <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Quartier</label>
+              <input type="text" required value={neighborhood} onChange={e => setNeighborhood(e.target.value)} placeholder="Ex: Bonapriso" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 text-sm" />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">Numéro WhatsApp</label>
-            <input type="tel" required value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="Ex: 6 90 00 00 00" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 placeholder-slate-400" />
+            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Numéro WhatsApp</label>
+            <input type="tel" required value={whatsapp} onChange={e => setWhatsapp(e.target.value)} placeholder="Ex: 6 90 00 00 00" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 text-sm" />
           </div>
 
           {role === 'annonceur' && (
             <>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Nom de ton business</label>
-                <input type="text" required value={businessName} onChange={e => setBusinessName(e.target.value)} placeholder="Ex: Boutique Élégance" className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 placeholder-slate-400" />
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Nom de ton business</label>
+                <input type="text" required value={businessName} onChange={e => setBusinessName(e.target.value)} placeholder="Ex: Boutique Élégance" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 text-sm" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Secteur d'activité</label>
-                <select required value={activitySector} onChange={e => setActivitySector(e.target.value)} className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900">
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Secteur d'activité</label>
+                <select required value={activitySector} onChange={e => setActivitySector(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 text-sm">
                   <option value="" disabled>Sélectionne un secteur</option>
                   <option value="commerce">Commerce / Boutique</option>
                   <option value="restauration">Restauration / Alimentaire</option>
@@ -108,9 +114,9 @@ export default function OnboardingPage() {
             </>
           )}
 
-          {error && <div className="text-red-500 text-sm text-center bg-red-50 border border-red-100 py-2 rounded-lg">{error}</div>}
+          {error && <div className="text-red-500 text-xs text-center bg-red-50 p-2.5 rounded-lg">{error}</div>}
 
-          <button type="submit" disabled={loading} className="w-full py-4 bg-sky-500 text-white font-bold rounded-xl hover:bg-sky-400 disabled:opacity-50 transition shadow-sm">
+          <button type="submit" disabled={loading} className="w-full py-3.5 bg-sky-500 text-white font-bold rounded-xl active:scale-95 disabled:opacity-50 transition shadow-md">
             {loading ? 'Enregistrement...' : 'Terminer'}
           </button>
         </form>
