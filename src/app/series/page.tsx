@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 const CATEGORIES = ['Tout', 'Romance', 'Action', 'Thriller', 'Fantastique', 'Science-Fiction', 'Drame', 'Comédie', 'Horreur', 'Aventure']
 
 export default function AllSeriesPage() {
   const supabase = createClient()
+  const router = useRouter()
   const [series, setSeries] = useState<any[]>([])
   const [filteredSeries, setFilteredSeries] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -53,11 +54,10 @@ export default function AllSeriesPage() {
   return (
     <main className="min-h-screen bg-slate-50 pb-24">
       
-      {/* HEADER */}
       <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 px-5 py-4 sticky top-0 z-50 flex items-center gap-3">
-        <Link href="/dashboard/reseau" className="text-slate-500 hover:text-slate-900 bg-slate-100 p-2 rounded-full active:bg-slate-200 transition">
+        <button onClick={() => router.back()} className="text-slate-500 hover:text-slate-900 bg-slate-100 p-2 rounded-full active:bg-slate-200 transition">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-        </Link>
+        </button>
         <h1 className="text-lg font-black text-slate-900 flex-1">Bibliothèque</h1>
         <div className="bg-purple-50 text-purple-600 px-3 py-1.5 rounded-xl border border-purple-100 flex items-center gap-1.5 text-xs font-bold">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
@@ -67,7 +67,6 @@ export default function AllSeriesPage() {
 
       <div className="p-4 max-w-lg mx-auto">
         
-        {/* BARRE DE RECHERCHE */}
         <div className="relative mb-4">
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
             <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
@@ -81,7 +80,6 @@ export default function AllSeriesPage() {
           />
         </div>
 
-        {/* FILTRES CATÉGORIES */}
         <div className="flex overflow-x-auto gap-2 pb-4 mb-2 no-scrollbar">
           {CATEGORIES.map(cat => (
             <button
@@ -98,7 +96,6 @@ export default function AllSeriesPage() {
           ))}
         </div>
 
-        {/* LISTE DES SÉRIES */}
         {filteredSeries.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 shadow-sm mt-4">
             <div className="w-16 h-16 bg-purple-50 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -110,7 +107,11 @@ export default function AllSeriesPage() {
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {filteredSeries.map((s: any) => (
-              <a key={s.id} href={`/series/${s.id}`} className="group flex flex-col">
+              <button 
+                key={s.id} 
+                onClick={() => { window.location.href = `/series/${s.id}`; }} 
+                className="group flex flex-col text-left"
+              >
                 <div className="aspect-[2/3] w-full rounded-2xl overflow-hidden bg-slate-200 mb-2 relative shadow-sm">
                   {s.cover_url ? (
                     <img src={s.cover_url} alt={s.title} className="w-full h-full object-cover" />
@@ -125,7 +126,7 @@ export default function AllSeriesPage() {
                 </div>
                 <h3 className="font-bold text-slate-900 text-sm leading-tight line-clamp-2 mb-1">{s.title}</h3>
                 <p className="text-[10px] text-slate-500 line-clamp-1">Par {s.profiles?.full_name || 'Anonyme'}</p>
-              </a>
+              </button>
             ))}
           </div>
         )}

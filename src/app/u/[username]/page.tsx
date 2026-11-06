@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
 export default function PublicProfilePage() {
@@ -52,7 +51,7 @@ export default function PublicProfilePage() {
   }, [userId])
 
   const handleFollow = async () => {
-    if (!currentUser) return router.push('/login')
+    if (!currentUser) { window.location.href = '/login'; return }
     if (isFollowing) {
       await supabase.from('follows').delete().eq('follower_id', currentUser.id).eq('following_id', userId)
       setIsFollowing(false)
@@ -101,9 +100,9 @@ export default function PublicProfilePage() {
       </div>
       <h2 className="text-lg font-bold text-slate-900 mb-2">Profil introuvable</h2>
       <p className="text-slate-500 text-sm mb-4">Cet utilisateur n'existe pas.</p>
-      <Link href="/dashboard/reseau" className="px-6 py-3 bg-sky-500 text-white font-bold rounded-xl">
+      <button onClick={() => { window.location.href = '/dashboard/reseau'; }} className="px-6 py-3 bg-sky-500 text-white font-bold rounded-xl">
         Retour au réseau
-      </Link>
+      </button>
     </div>
   )
 
@@ -112,7 +111,6 @@ export default function PublicProfilePage() {
   return (
     <main className="min-h-screen bg-slate-50 pb-24">
       
-      {/* TOAST */}
       {toast && (
         <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl shadow-2xl font-bold text-sm text-white flex items-center gap-2 w-[90%] max-w-sm ${
           toast.type === 'success' ? 'bg-gradient-to-r from-emerald-500 to-green-500' : 
@@ -124,9 +122,9 @@ export default function PublicProfilePage() {
       )}
 
       <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 px-5 py-4 sticky top-0 z-50 flex items-center gap-3">
-        <Link href="/dashboard/reseau" className="text-slate-500 bg-slate-100 p-2 rounded-full active:bg-slate-200 transition">
+        <button onClick={() => router.back()} className="text-slate-500 bg-slate-100 p-2 rounded-full active:bg-slate-200 transition">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-        </Link>
+        </button>
         <h1 className="text-lg font-black text-slate-900 flex-1">Profil</h1>
         <button onClick={handleShare} className="text-slate-500 bg-slate-100 p-2 rounded-full active:bg-slate-200 transition">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
@@ -135,7 +133,6 @@ export default function PublicProfilePage() {
 
       <div className="max-w-lg mx-auto">
         
-        {/* CARTE PROFIL */}
         <div className="bg-white border-b border-slate-200 p-6 text-center relative overflow-hidden">
           <div className={`absolute top-0 left-0 w-full h-20 bg-gradient-to-r ${levelColor}`}></div>
           
@@ -180,7 +177,6 @@ export default function PublicProfilePage() {
           )}
         </div>
 
-        {/* POSTS */}
         <div className="p-4 space-y-3">
           <h3 className="font-bold text-slate-900 text-sm">Publications</h3>
           {posts.length === 0 ? (

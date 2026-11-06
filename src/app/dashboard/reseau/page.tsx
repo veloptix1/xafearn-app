@@ -5,11 +5,23 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
+const TIPS = [
+  "Soutiens tes créateurs préférés avec des jetons !",
+  "Découvre la bibliothèque de séries et gagne des récompenses.",
+  "Deviens créateur dans le Studio et monétise tes histoires.",
+  "Plus tu reçois de jetons, plus tu montes dans le classement !",
+  "Commente les publications qui te plaisent.",
+  "Publie du contenu de qualité pour attirer plus d'abonnés.",
+  "Recharge ton solde facilement avec le bouton '+ Jetons'.",
+  "Partage tes publications sur tes réseaux.",
+]
+
 export default function ReseauPage() {
   const supabase = createClient()
   const router = useRouter()
   
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [profile, setProfile] = useState<any>(null)
   const [posts, setPosts] = useState<any[]>([])
   const [trending, setTrending] = useState<any[]>([])
@@ -23,6 +35,34 @@ export default function ReseauPage() {
     setToast({ message, type })
     setTimeout(() => setToast(null), 3500)
   }
+
+  useEffect(() => {
+    const randomTip = TIPS[Math.floor(Math.random() * TIPS.length)]
+    const timer = setTimeout(() => {
+      showToast(randomTip, 'info')
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [])
+
+  // Création de post
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [newText, setNewText] = useState('')
+  const [newMedia, setNewMedia] = useState<File | null>(null)
+  const [mediaType, setMediaType] = useState<'image' | 'video'>('image')
+  const [isUploading, setIsUploading] = useState(false)
+
+  // Interactions
+  const [activePost, setActivePost] = useState<any>(null)
+  const [coinAmount, setCoinAmount] = useState(10)
+  const [isSending, setIsSending] = useState(false)
+  const [activeCommentPost, setActiveCommentPost] = useState<any>(null)
+  const [comments, setComments] = useState<any[]>([])
+  const [newComment, setNewComment] = useState('')
+  const [isCommenting, setIsCommenting] = useState(false)
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [editingPost, setEditingPost] = useState<any>(null)
+  const [editText, setEditText] = useState('')
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null)
 
   useEffect(() => {
     loadInitialData()
@@ -106,8 +146,6 @@ export default function ReseauPage() {
     setLoadingMore(false)
   }
 
-  const [loadingMore, setLoadingMore] = useState(false)
-
   const compressImage = (file: File): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -129,13 +167,6 @@ export default function ReseauPage() {
       }
     })
   }
-
-  // Création de post
-  const [isCreateOpen, setIsCreateOpen] = useState(false)
-  const [newText, setNewText] = useState('')
-  const [newMedia, setNewMedia] = useState<File | null>(null)
-  const [mediaType, setMediaType] = useState<'image' | 'video'>('image')
-  const [isUploading, setIsUploading] = useState(false)
 
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -185,19 +216,6 @@ export default function ReseauPage() {
     setIsUploading(false)
   }
 
-  // Interactions
-  const [activePost, setActivePost] = useState<any>(null)
-  const [coinAmount, setCoinAmount] = useState(10)
-  const [isSending, setIsSending] = useState(false)
-  const [activeCommentPost, setActiveCommentPost] = useState<any>(null)
-  const [comments, setComments] = useState<any[]>([])
-  const [newComment, setNewComment] = useState('')
-  const [isCommenting, setIsCommenting] = useState(false)
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
-  const [editingPost, setEditingPost] = useState<any>(null)
-  const [editText, setEditText] = useState('')
-  const [deletingPostId, setDeletingPostId] = useState<string | null>(null)
-
   const handleSendCoins = async () => {
     if (!activePost) return
     if ((profile.coins_balance || 0) < coinAmount) return showToast('Solde insuffisant.', 'error')
@@ -222,7 +240,6 @@ export default function ReseauPage() {
     setIsSending(false)
   }
 
-  // 🚀 SHARE NATIF (plugin Capacitor)
   const handleShare = async (post: any) => {
     const PROD_URL = 'https://getagriculture.store'
     const shareUrl = `${PROD_URL}/u/${post.user_id}`
@@ -231,7 +248,6 @@ export default function ReseauPage() {
       : `Découvre le profil de ${post.profiles?.full_name} sur XAFEARN`
 
     try {
-      // Essayer le plugin Capacitor Share
       const { Share } = await import('@capacitor/share')
       await Share.share({
         title: 'XAFEARN',
@@ -240,14 +256,12 @@ export default function ReseauPage() {
         dialogTitle: 'Partager avec...'
       })
     } catch (err) {
-      // Fallback : Web Share API
       if (navigator.share) {
         try {
           await navigator.share({ title: 'XAFEARN', text: shareText, url: shareUrl })
           return
         } catch (e) {}
       }
-      // Dernier recours : copier
       await navigator.clipboard.writeText(shareUrl)
       showToast('Lien copié !', 'success')
     }
@@ -335,28 +349,27 @@ export default function ReseauPage() {
         </div>
       )}
 
-      {/* HEADER AVEC ONGLETS DÉFILABLES */}
+      {/* HEADER */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-slate-200/50 px-4 py-3 flex justify-between items-center shadow-sm">
-        <Link href="/dashboard" className="text-slate-700 bg-slate-100 p-2.5 rounded-full active:bg-slate-200 transition shrink-0">
+        <button onClick={() => router.push('/dashboard')} className="text-slate-700 bg-slate-100 p-2.5 rounded-full active:bg-slate-200 transition shrink-0">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-        </Link>
+        </button>
         
-        {/* Onglets défilables */}
         <div className="flex-1 mx-2 overflow-x-auto no-scrollbar">
           <div className="flex gap-1 text-xs font-bold bg-slate-100 p-1 rounded-full w-max">
             <button onClick={() => setActiveTab('pour-toi')} className={`px-3 py-1.5 rounded-full transition whitespace-nowrap ${activeTab === 'pour-toi' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}>Pour toi</button>
             <button onClick={() => setActiveTab('recents')} className={`px-3 py-1.5 rounded-full transition whitespace-nowrap ${activeTab === 'recents' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}>Récents</button>
             <button onClick={() => setActiveTab('abonnements')} className={`px-3 py-1.5 rounded-full transition whitespace-nowrap ${activeTab === 'abonnements' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}>Abos</button>
-            <Link href="/series" className="px-3 py-1.5 rounded-full transition whitespace-nowrap bg-purple-100 text-purple-700 flex items-center gap-1">
+            <button onClick={() => router.push('/series')} className="px-3 py-1.5 rounded-full transition whitespace-nowrap bg-purple-100 text-purple-700 flex items-center gap-1">
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
               Séries
-            </Link>
+            </button>
           </div>
         </div>
 
-        <Link href="/dashboard/jetons/acheter" className="w-9 h-9 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-full flex items-center justify-center shadow-md active:scale-95 transition shrink-0">
+        <button onClick={() => router.push('/dashboard/jetons/acheter')} className="w-9 h-9 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-full flex items-center justify-center shadow-md active:scale-95 transition shrink-0">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-        </Link>
+        </button>
       </header>
 
       {/* STORIES */}
@@ -364,7 +377,7 @@ export default function ReseauPage() {
         <div className="bg-white/50 backdrop-blur-sm border-b border-slate-200/50 py-3">
           <div className="px-4 flex gap-4 overflow-x-auto no-scrollbar">
             {trending.map((creator) => (
-              <Link key={creator.id} href={`/u/${creator.id}`} className="flex flex-col items-center gap-1.5 shrink-0 active:scale-95 transition">
+              <button key={creator.id} onClick={() => { window.location.href = `/u/${creator.id}`; }} className="flex flex-col items-center gap-1.5 shrink-0 active:scale-95 transition">
                 <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-cyan-400 via-blue-500 to-purple-500 p-0.5 shadow-md">
                   <div className="w-full h-full bg-white rounded-full flex items-center justify-center font-black text-xl text-slate-800">
                     {creator.name.charAt(0)}
@@ -375,7 +388,7 @@ export default function ReseauPage() {
                   <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" /><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" /></svg>
                   {creator.coins}
                 </div>
-              </Link>
+              </button>
             ))}
           </div>
         </div>
@@ -397,7 +410,7 @@ export default function ReseauPage() {
               <div key={post.id} className="bg-white rounded-3xl overflow-hidden shadow-md border border-slate-100 mx-3">
                 
                 <div className="flex items-center justify-between p-3">
-                  <Link href={`/u/${post.user_id}`} className="flex items-center gap-3 active:opacity-70 transition flex-1 min-w-0">
+                  <button onClick={() => { window.location.href = `/u/${post.user_id}`; }} className="flex items-center gap-3 active:opacity-70 transition flex-1 min-w-0 text-left">
                     <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-full flex items-center justify-center font-bold text-white shadow-sm shrink-0">
                       {post.profiles?.full_name?.charAt(0)}
                     </div>
@@ -405,7 +418,7 @@ export default function ReseauPage() {
                       <p className="font-bold text-sm text-slate-900 truncate">@{post.profiles?.full_name}</p>
                       <p className="text-[10px] text-slate-400">Publication</p>
                     </div>
-                  </Link>
+                  </button>
                   
                   {post.user_id === profile?.id && (
                     <div className="relative shrink-0">
@@ -555,7 +568,6 @@ export default function ReseauPage() {
         </div>
       )}
 
-      {/* MODAL ÉDITION */}
       {editingPost && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4">
           <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 shadow-2xl animate-in slide-in-from-bottom duration-300">
@@ -569,7 +581,6 @@ export default function ReseauPage() {
         </div>
       )}
 
-      {/* MODAL SUPPRESSION */}
       {deletingPostId && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <div className="bg-white rounded-3xl w-full max-w-sm p-6 text-center shadow-2xl">
