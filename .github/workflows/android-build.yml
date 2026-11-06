@@ -38,13 +38,18 @@ jobs:
       - name: Setup Capacitor
         run: npx cap sync android
 
-      - name: Build APK
+      - name: Build Debug APK
         run: |
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - uses: actions/upload-artifact@v4
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk xafearn.apk
+
+      # 🚀 ON UPLOAD DIRECTEMENT L'APK (SANS ZIP)
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
-          name: xafearn-app-debug
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: xafearn-apk
+          path: xafearn.apk
