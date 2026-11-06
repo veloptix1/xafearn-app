@@ -1,4 +1,5 @@
 'use client'
+
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -12,10 +13,13 @@ const paysAfrique = [
   { code: 'TG', nom: 'Togo' }, { code: 'NE', nom: 'Niger' }, { code: 'TD', nom: 'Tchad' },
 ]
 
+// 🚀 L'URL DE TON SITE VERCEL (pour appeler les API routes)
+const VERCEL_URL = 'https://getagriculture.store'
+
 export default function CreerAnnoncePage() {
   const router = useRouter()
   const supabase = createClient()
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [profile, setProfile] = useState<any>(null)
@@ -33,7 +37,7 @@ export default function CreerAnnoncePage() {
   const [views, setViews] = useState('1000')
   const [acceptTerms, setAcceptTerms] = useState(false)
   const [isFlash, setIsFlash] = useState(false)
-  
+
   // Paiement
   const [paymentMethod, setPaymentMethod] = useState<'balance' | 'leekpay'>('balance')
   const [showPaymentModal, setShowPaymentModal] = useState(false)
@@ -45,10 +49,12 @@ export default function CreerAnnoncePage() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return router.push('/login')
+
       const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
       setProfile(data)
       setWhatsapp(data?.whatsapp || '')
       setCountry(data?.country || 'CM')
+      setLoading(false)
     }
     load()
   }, [router, supabase])
@@ -84,8 +90,8 @@ export default function CreerAnnoncePage() {
 
     try {
       if (paymentMethod === 'balance') {
-        // Paiement par solde interne
-        const res = await fetch('/api/campaigns/create', {
+        // 🚀 APPEL À L'API DE TON SITE VERCEL
+        const res = await fetch(`${VERCEL_URL}/api/campaigns/create`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -93,27 +99,30 @@ export default function CreerAnnoncePage() {
             sector, country, city, neighborhood, whatsapp,
             views: parseInt(views), budget, is_flash: isFlash,
             expires_at: isFlash ? new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() : null,
-            payment_method: 'balance'
+            payment_method: 'balance',
+            user_id: profile.id // On ajoute l'ID pour que l'API sache qui paie
           })
         })
         const data = await res.json()
-        if (!res.ok) throw new Error(data.error)
+        if (!res.ok) throw new Error(data.error || 'Erreur de paiement')
         router.push('/dashboard/annonces')
       } else {
-        // Paiement LeekPay
-        const res = await fetch('/api/leekpay/create', {
+        // 🚀 APPEL À L'API LEEKPAY DE TON SITE VERCEL
+        const res = await fetch(`${VERCEL_URL}/api/leekpay/create`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             amount: Math.round(budget),
             description: `Campagne: ${title}`,
+            campaign_data: { title, description, image_url: imageUrl, price: parseFloat(price) || 0, sector, country, city, neighborhood, whatsapp, views: parseInt(views), budget, is_flash: isFlash, user_id: profile.id }
           })
         })
         const data = await res.json()
-        if (!res.ok) throw new Error(data.error)
+        if (!res.ok) throw new Error(data.error || 'Erreur LeekPay')
         
-        // Rediriger vers LeekPay
-        window.location.href = data.payment_url
+        // Ouvre LeekPay dans le navigateur
+        window.open(data.payment_url, '_system')
+        router.push('/dashboard/annonces')
       }
     } catch (err: any) {
       setError(err.message)
@@ -121,37 +130,47 @@ export default function CreerAnnoncePage() {
     }
   }
 
+  if (loading && !showPaymentModal) return (
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+      <div className="w-8 h-8 border-4 border-sky-200 border-t-sky-500 rounded-full animate-spin mb-4"></div>
+      <p className="text-slate-500 font-medium text-sm">Chargement...</p>
+    </div>
+  )
+
   return (
     <main className="min-h-screen bg-slate-50 pb-24">
-      <header className="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-50 flex items-center gap-4">
-        <Link href="/dashboard/annonces" className="text-slate-500 hover:text-slate-900 bg-slate-100 p-2 rounded-full">
+      <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 px-5 py-4 sticky top-0 z-50 flex items-center gap-3">
+        <Link href="/dashboard/annonces" className="text-slate-500 hover:text-slate-900 bg-slate-100 p-2 rounded-full active:bg-slate-200 transition">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
         </Link>
-        <h1 className="text-lg font-bold text-slate-900">Créer une campagne</h1>
+        <h1 className="text-lg font-black text-slate-900">Créer une campagne</h1>
       </header>
 
-      <div className="p-4 md:p-8 max-w-2xl mx-auto mt-4">
-        {error && <div className="bg-red-50 text-red-600 p-3 rounded-xl text-sm font-medium mb-4">{error}</div>}
+      <div className="p-4 max-w-lg mx-auto mt-2">
+        {error && (
+          <div className="bg-red-50 border border-red-100 text-red-600 p-3 rounded-xl text-xs font-bold mb-4">
+            {error}
+          </div>
+        )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* SECTION 1 : CONTENU */}
-          <section className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm">
-            <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <span className="w-6 h-6 bg-sky-100 text-sky-600 rounded-full flex items-center justify-center text-xs">1</span>
+          <section className="bg-white border border-slate-200 p-5 rounded-3xl shadow-sm">
+            <h2 className="text-sm font-black text-slate-900 mb-4 flex items-center gap-2">
+              <span className="w-6 h-6 bg-sky-100 text-sky-600 rounded-full flex items-center justify-center text-[10px]">1</span>
               Contenu
             </h2>
-            <div className="space-y-4">
-              <input type="text" required placeholder="Titre de l'annonce" value={title} onChange={e => setTitle(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900" />
-              <textarea required rows={3} placeholder="Description détaillée..." value={description} onChange={e => setDescription(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 resize-none" />
-              
-              <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center hover:bg-slate-50 transition relative">
+            <div className="space-y-3">
+              <input type="text" required placeholder="Titre de l'annonce" value={title} onChange={e => setTitle(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 text-sm" />
+              <textarea required rows={3} placeholder="Description détaillée..." value={description} onChange={e => setDescription(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 resize-none text-sm" />
+              <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center relative">
                 <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                 {imageUrl ? (
                   <img src={imageUrl} alt="Aperçu" className="max-h-40 mx-auto rounded-lg object-contain" />
                 ) : (
-                  <div className="py-4">
+                  <div className="py-2">
                     <svg className="w-8 h-8 text-slate-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                    <p className="text-sm text-slate-500 font-medium">Ajouter une image</p>
+                    <p className="text-xs text-slate-500 font-medium">{uploading ? 'Envoi...' : 'Ajouter une image'}</p>
                   </div>
                 )}
               </div>
@@ -159,15 +178,15 @@ export default function CreerAnnoncePage() {
           </section>
 
           {/* SECTION 2 : DÉTAILS */}
-          <section className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm">
-            <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <span className="w-6 h-6 bg-sky-100 text-sky-600 rounded-full flex items-center justify-center text-xs">2</span>
-              Détails de l'offre
+          <section className="bg-white border border-slate-200 p-5 rounded-3xl shadow-sm">
+            <h2 className="text-sm font-black text-slate-900 mb-4 flex items-center gap-2">
+              <span className="w-6 h-6 bg-sky-100 text-sky-600 rounded-full flex items-center justify-center text-[10px]">2</span>
+              Détails
             </h2>
-            <div className="grid grid-cols-2 gap-4">
-              <input type="number" placeholder="Prix (FCFA)" value={price} onChange={e => setPrice(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900" />
-              <select required value={sector} onChange={e => setSector(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900">
-                <option value="" disabled>Secteur d'activité</option>
+            <div className="grid grid-cols-2 gap-3">
+              <input type="number" placeholder="Prix (FCFA)" value={price} onChange={e => setPrice(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 text-sm" />
+              <select required value={sector} onChange={e => setSector(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 text-sm">
+                <option value="" disabled>Secteur</option>
                 <option value="commerce">Commerce</option>
                 <option value="restauration">Restauration</option>
                 <option value="mode">Mode</option>
@@ -175,110 +194,113 @@ export default function CreerAnnoncePage() {
                 <option value="sante">Santé</option>
               </select>
               <div className="col-span-2">
-                <input type="tel" required placeholder="Numéro WhatsApp" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900" />
+                <input type="tel" required placeholder="Numéro WhatsApp" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 text-sm" />
               </div>
             </div>
           </section>
 
           {/* SECTION 3 : CIBLAGE */}
-          <section className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm">
-            <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <span className="w-6 h-6 bg-sky-100 text-sky-600 rounded-full flex items-center justify-center text-xs">3</span>
-              Ciblage géographique
+          <section className="bg-white border border-slate-200 p-5 rounded-3xl shadow-sm">
+            <h2 className="text-sm font-black text-slate-900 mb-4 flex items-center gap-2">
+              <span className="w-6 h-6 bg-sky-100 text-sky-600 rounded-full flex items-center justify-center text-[10px]">3</span>
+              Ciblage
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <select value={country} onChange={e => setCountry(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900">
+            <div className="space-y-3">
+              <select value={country} onChange={e => setCountry(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 text-sm">
                 {paysAfrique.map(p => <option key={p.code} value={p.code}>{p.nom}</option>)}
               </select>
-              <input type="text" placeholder="Ville (optionnel)" value={city} onChange={e => setCity(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900" />
-              <input type="text" placeholder="Quartier (optionnel)" value={neighborhood} onChange={e => setNeighborhood(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900" />
+              <input type="text" placeholder="Ville (optionnel)" value={city} onChange={e => setCity(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 text-sm" />
+              <input type="text" placeholder="Quartier (optionnel)" value={neighborhood} onChange={e => setNeighborhood(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 text-sm" />
             </div>
           </section>
 
           {/* SECTION 4 : BUDGET */}
-          <section className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm">
-            <h2 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
-              <span className="w-6 h-6 bg-sky-100 text-sky-600 rounded-full flex items-center justify-center text-xs">4</span>
-              Paramètres de la campagne
+          <section className="bg-white border border-slate-200 p-5 rounded-3xl shadow-sm">
+            <h2 className="text-sm font-black text-slate-900 mb-4 flex items-center gap-2">
+              <span className="w-6 h-6 bg-sky-100 text-sky-600 rounded-full flex items-center justify-center text-[10px]">4</span>
+              Paramètres
             </h2>
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Nombre de vues souhaitées (min. 300)</label>
-              <input type="number" min="300" required value={views} onChange={e => setViews(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 font-bold" />
+            <div className="mb-3">
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Vues souhaitées (min. 300)</label>
+              <input type="number" min="300" required value={views} onChange={e => setViews(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 font-bold text-sm" />
             </div>
-            
-            <label className="flex items-start gap-3 cursor-pointer p-3 border border-rose-200 bg-rose-50 rounded-xl mt-4 mb-4">
-              <input type="checkbox" checked={isFlash} onChange={e => setIsFlash(e.target.checked)} className="mt-1 w-4 h-4 accent-rose-500 rounded" />
+
+            <label className="flex items-start gap-3 cursor-pointer p-3 border border-rose-200 bg-rose-50 rounded-xl mb-3">
+              <input type="checkbox" checked={isFlash} onChange={e => setIsFlash(e.target.checked)} className="mt-0.5 w-4 h-4 accent-rose-500 rounded" />
               <div>
-                <p className="text-sm font-bold text-rose-700 flex items-center gap-1">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                  Mode Flash (Urgence)
+                <p className="text-xs font-bold text-rose-700 flex items-center gap-1">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                  Mode Flash
                 </p>
-                <p className="text-xs text-rose-600 mt-0.5">L'annonce expirera dans 2 heures.</p>
+                <p className="text-[10px] text-rose-600 mt-0.5">Expire dans 2 heures.</p>
               </div>
             </label>
 
             <div className="bg-sky-50 border border-sky-100 rounded-xl p-4 flex justify-between items-center">
               <div>
-                <p className="text-xs text-sky-700 font-medium uppercase tracking-wider">Budget total estimé</p>
-                <p className="text-xs text-slate-500">1,92 F / vue • Durée fixe : {isFlash ? '2 heures' : '7 jours'}</p>
+                <p className="text-[10px] text-sky-700 font-bold uppercase tracking-wider">Budget total</p>
+                <p className="text-[10px] text-slate-500">1,92 F / vue</p>
               </div>
-              <p className="text-2xl font-black text-sky-600">{budget.toLocaleString('fr-FR')} F</p>
+              <p className="text-xl font-black text-sky-600">{budget.toLocaleString('fr-FR')} F</p>
+            </div>
+
+            <div className="mt-3 text-[10px] text-slate-500 flex justify-between">
+              <span>Ton solde :</span>
+              <span className="font-bold text-slate-700">{(profile?.balance || 0).toLocaleString('fr-FR')} F</span>
             </div>
           </section>
 
-          <div className="bg-white border border-slate-200 p-5 rounded-2xl shadow-sm">
+          <div className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm">
             <label className="flex items-start gap-3 cursor-pointer">
-              <input type="checkbox" checked={acceptTerms} onChange={e => setAcceptTerms(e.target.checked)} className="mt-1 w-5 h-5 accent-sky-500 rounded border-slate-300" />
-              <span className="text-sm text-slate-600 leading-relaxed">
-                J'accepte les <Link href="/conditions" className="text-sky-500 hover:underline">conditions de publicité</Link>. Ma campagne sera soumise à validation.
+              <input type="checkbox" checked={acceptTerms} onChange={e => setAcceptTerms(e.target.checked)} className="mt-0.5 w-5 h-5 accent-sky-500 rounded border-slate-300" />
+              <span className="text-xs text-slate-600 leading-relaxed">
+                J'accepte les <Link href="/conditions" className="text-sky-500 font-bold">conditions</Link>.
               </span>
             </label>
           </div>
 
-          <button type="submit" disabled={loading || uploading} className="w-full py-4 bg-sky-500 text-white font-bold rounded-xl hover:bg-sky-400 disabled:opacity-50 transition shadow-md text-lg">
-            {loading ? 'Traitement...' : 'Passer au paiement'}
+          <button type="submit" disabled={uploading} className="w-full py-4 bg-sky-500 text-white font-bold rounded-2xl active:scale-95 disabled:opacity-50 transition shadow-lg shadow-sky-500/30">
+            Passer au paiement
           </button>
         </form>
       </div>
 
       {/* MODAL DE PAIEMENT */}
       {showPaymentModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl p-6">
-            <h2 className="text-xl font-bold text-slate-900 mb-1">Paiement de la campagne</h2>
-            <p className="text-sm text-slate-500 mb-6">Montant total : <strong className="text-slate-900">{budget.toLocaleString('fr-FR')} FCFA</strong></p>
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 shadow-2xl animate-in slide-in-from-bottom duration-300">
+            <h2 className="text-lg font-black text-slate-900 mb-1">Paiement</h2>
+            <p className="text-sm text-slate-500 mb-6">Montant : <strong className="text-slate-900">{budget.toLocaleString('fr-FR')} FCFA</strong></p>
 
             <div className="space-y-3 mb-6">
-              {/* Option Solde */}
-              <label className={`block p-4 rounded-xl border-2 cursor-pointer transition ${paymentMethod === 'balance' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200 hover:border-emerald-300'}`}>
+              <label className={`block p-4 rounded-xl border-2 cursor-pointer transition ${paymentMethod === 'balance' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <input type="radio" name="payment" checked={paymentMethod === 'balance'} onChange={() => setPaymentMethod('balance')} className="w-4 h-4 accent-emerald-500" />
                     <div>
-                      <p className="font-bold text-slate-900 text-sm">Utiliser mon solde</p>
-                      <p className="text-xs text-slate-500">Disponible : {profile?.balance?.toLocaleString('fr-FR')} FCFA</p>
+                      <p className="font-bold text-slate-900 text-sm">Mon solde</p>
+                      <p className="text-xs text-slate-500">Disponible : {profile?.balance?.toLocaleString('fr-FR')} F</p>
                     </div>
                   </div>
                   {(profile?.balance || 0) < budget && <span className="text-[10px] font-bold text-red-500">Insuffisant</span>}
                 </div>
               </label>
 
-              {/* Option LeekPay */}
-              <label className={`block p-4 rounded-xl border-2 cursor-pointer transition ${paymentMethod === 'leekpay' ? 'border-sky-500 bg-sky-50' : 'border-slate-200 hover:border-sky-300'}`}>
+              <label className={`block p-4 rounded-xl border-2 cursor-pointer transition ${paymentMethod === 'leekpay' ? 'border-sky-500 bg-sky-50' : 'border-slate-200'}`}>
                 <div className="flex items-center gap-3">
                   <input type="radio" name="payment" checked={paymentMethod === 'leekpay'} onChange={() => setPaymentMethod('leekpay')} className="w-4 h-4 accent-sky-500" />
                   <div>
-                    <p className="font-bold text-slate-900 text-sm">Payer avec Mobile Money / Carte</p>
-                    <p className="text-xs text-slate-500">Via LeekPay (Orange, MTN, Wave...)</p>
+                    <p className="font-bold text-slate-900 text-sm">Mobile Money / Carte</p>
+                    <p className="text-xs text-slate-500">Via LeekPay</p>
                   </div>
                 </div>
               </label>
             </div>
 
             <div className="flex gap-2">
-              <button onClick={() => setShowPaymentModal(false)} className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl">Annuler</button>
-              <button onClick={processPayment} disabled={loading} className="flex-1 py-3 bg-emerald-500 text-white font-bold rounded-xl disabled:opacity-50">
-                {loading ? 'Traitement...' : 'Confirmer le paiement'}
+              <button onClick={() => setShowPaymentModal(false)} className="flex-1 py-3.5 bg-slate-100 text-slate-700 font-bold rounded-xl">Annuler</button>
+              <button onClick={processPayment} disabled={loading} className="flex-1 py-3.5 bg-emerald-500 text-white font-bold rounded-xl disabled:opacity-50 shadow-md">
+                {loading ? 'Traitement...' : 'Confirmer'}
               </button>
             </div>
           </div>
