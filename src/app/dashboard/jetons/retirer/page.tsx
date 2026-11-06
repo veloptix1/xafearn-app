@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import Toast from '@/components/Toast'
 
-const RATE = 5 // 1 jeton = 5 FCFA (à ajuster)
+const RATE = 5 // 1 jeton = 5 FCFA
 
 export default function WithdrawCoinsPage() {
   const supabase = createClient()
@@ -33,14 +33,16 @@ export default function WithdrawCoinsPage() {
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type })
-    setTimeout(() => setToast(null), 3000)
+    setTimeout(() => setToast(null), 4000)
   }
 
   const handleWithdraw = async (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // 🛡️ VALIDATION CÔTÉ CLIENT
     const coins = parseInt(amount)
     
-    if (!coins || coins < 100) {
+    if (!coins || isNaN(coins) || coins < 100) {
       return showToast('Minimum 100 jetons pour retirer.', 'error')
     }
 
@@ -48,42 +50,39 @@ export default function WithdrawCoinsPage() {
       return showToast('Solde de jetons insuffisant.', 'error')
     }
 
-    if (!phone) {
-      return showToast('Entre ton numéro de téléphone.', 'error')
+    // Validation du numéro de téléphone (minimum 8 chiffres)
+    const cleanPhone = phone.replace(/\s/g, '')
+    if (cleanPhone.length < 8 || isNaN(Number(cleanPhone))) {
+      return showToast('Numéro de téléphone invalide.', 'error')
     }
 
     setIsSubmitting(true)
 
     try {
-      const fcfaAmount = coins * RATE
-
-      const { error } = await supabase.from('withdrawals').insert({
-        user_id: profile.id,
-        amount: fcfaAmount,
-        method: method,
-        phone: phone,
-        status: 'pending',
-        type: 'coins_exchange'
+      // 🛡️ APPEL À LA FONCTION RPC SÉCURISÉE (côté serveur)
+      const { data: rpcResult, error } = await supabase.rpc('request_coin_withdrawal', {
+        p_user_id: profile.id,
+        p_coins: coins,
+        p_method: method,
+        p_phone: cleanPhone
       })
 
-      if (error) throw error
+      if (error) throw new Error(error.message)
+      
+      // On vérifie le retour de la fonction
+      if (!rpcResult.success) {
+        throw new Error(rpcResult.error || 'Erreur inconnue')
+      }
 
-      await supabase.from('profiles').update({
-        coins_balance: (profile.coins_balance || 0) - coins
-      }).eq('id', profile.id)
-
-      await supabase.from('notifications').insert({
-        user_id: profile.id,
-        title: 'Demande de retrait envoyée',
-        message: `Ta demande de ${fcfaAmount} FCFA est en cours de traitement.`,
-        link: '/dashboard/historique'
-      })
-
-      showToast('Demande envoyée avec succès !', 'success')
+      // Mise à jour locale du solde
       setProfile({ ...profile, coins_balance: (profile.coins_balance || 0) - coins })
+      
+      showToast(`Demande de ${rpcResult.fcfa_amount} FCFA envoyée !`, 'success')
       setAmount('')
       setPhone('')
-      setTimeout(() => router.push('/dashboard'), 1500)
+      
+      setTimeout(() => router.push('/dashboard/historique'), 2000)
+
     } catch (err: any) {
       showToast('Erreur : ' + err.message, 'error')
     } finally {
@@ -99,7 +98,7 @@ export default function WithdrawCoinsPage() {
   )
 
   const coins = parseInt(amount) || 0
-  const fcfaReceived = coins * RATE
+  const fcfaReceived = coins > 0 ? coins * RATE : 0
 
   return (
     <main className="min-h-screen bg-slate-50 pb-28">
@@ -107,7 +106,7 @@ export default function WithdrawCoinsPage() {
 
       <header className="bg-white/90 backdrop-blur-md border-b border-slate-200 px-5 py-4 sticky top-0 z-50 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/dashboard" className="text-slate-500 hover:text-slate-900 bg-slate-100 p-2 rounded-full active:bg-slate-200 transition">
+          <Link href="/dashboard/jetons/acheter" className="text-slate-500 hover:text-slate-900 bg-slate-100 p-2 rounded-full active:bg-slate-200 transition">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
           </Link>
           <h1 className="text-lg font-black text-slate-900">Retirer</h1>
@@ -133,13 +132,18 @@ export default function WithdrawCoinsPage() {
             <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Nombre de jetons à convertir</label>
             <input 
               type="number" 
+              min="100"
+              step="1"
               value={amount} 
               onChange={e => setAmount(e.target.value)}
               placeholder="Ex: 500"
               className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-lg font-black text-slate-900 focus:border-sky-400 outline-none"
             />
             {coins > 0 && (
-              <p className="text-xs font-bold text-emerald-600 mt-2">Tu recevras : {fcfaReceived.toLocaleString('fr-FR')} FCFA</p>
+              <p className="text-xs font-bold text-emerald-600 mt-2 flex items-center gap-1">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>
+                Tu recevras : {fcfaReceived.toLocaleString('fr-FR')} FCFA
+              </p>
             )}
           </div>
 
@@ -172,12 +176,26 @@ export default function WithdrawCoinsPage() {
 
           <button 
             type="submit" 
-            disabled={isSubmitting || coins < 100}
-            className="w-full py-4 bg-amber-500 text-white font-bold rounded-xl active:scale-95 transition disabled:opacity-50 shadow-md"
+            disabled={isSubmitting || coins < 100 || coins > (profile?.coins_balance || 0)}
+            className="w-full py-4 bg-amber-500 text-white font-bold rounded-xl active:scale-95 transition disabled:opacity-50 shadow-md flex justify-center items-center gap-2"
           >
-            {isSubmitting ? 'Traitement...' : 'Demander le retrait'}
+            {isSubmitting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                Traitement...
+              </>
+            ) : (
+              'Demander le retrait'
+            )}
           </button>
         </form>
+
+        <div className="bg-sky-50 border border-sky-100 rounded-2xl p-4">
+          <p className="text-xs text-sky-800 font-medium flex items-start gap-2">
+            <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            Le traitement des retraits peut prendre jusqu'à 24h. Tu recevras une notification dès que l'argent sera envoyé.
+          </p>
+        </div>
       </div>
     </main>
   )
