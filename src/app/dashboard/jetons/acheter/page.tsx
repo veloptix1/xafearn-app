@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { Browser } from '@capacitor/browser'
 import Toast from '@/components/Toast'
 
 const COINS_PER_1000_FCFA = 800
@@ -20,7 +21,7 @@ export default function BuyCoinsPage() {
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' | 'warning' } | null>(null)
   const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
     setToast({ message, type })
-    setTimeout(() => setToast(null), 3000)
+    setTimeout(() => setToast(null), 3500)
   }
 
   useEffect(() => {
@@ -39,50 +40,38 @@ export default function BuyCoinsPage() {
   const handleBuyWithBalance = async () => {
     if ((profile.balance || 0) < selectedFCFA) return showToast('Solde FCFA insuffisant.', 'error')
     setIsProcessing(true)
-    
     try {
-      const { error: err1 } = await supabase.from('profiles').update({ 
-        balance: profile.balance - selectedFCFA 
-      }).eq('id', profile.id)
-      if (err1) throw err1
-
-      const { error: err2 } = await supabase.from('profiles').update({ 
-        coins_balance: (profile.coins_balance || 0) + coinsToReceive 
-      }).eq('id', profile.id)
-      if (err2) throw err2
-
-      await supabase.from('notifications').insert({ 
-        user_id: profile.id, 
-        title: 'Jetons achetés', 
-        message: `+${coinsToReceive} jetons ajoutés à ton compte.`, 
-        link: '/dashboard/reseau' 
-      })
-      
+      await supabase.from('profiles').update({ balance: profile.balance - selectedFCFA }).eq('id', profile.id)
+      await supabase.from('profiles').update({ coins_balance: (profile.coins_balance || 0) + coinsToReceive }).eq('id', profile.id)
+      await supabase.from('notifications').insert({ user_id: profile.id, title: 'Jetons achetés', message: `+${coinsToReceive} jetons`, link: '/dashboard/reseau' })
       showToast(`${coinsToReceive} jetons ajoutés !`, 'success')
       setTimeout(() => router.push('/dashboard/reseau'), 1500)
-    } catch (err: any) { 
-      showToast('Erreur : ' + err.message, 'error') 
-    }
+    } catch (err: any) { showToast('Erreur : ' + err.message, 'error') }
     setIsProcessing(false)
   }
 
+  // 🚀 NOUVEAU : LeekPay avec navigateur in-app
   const handleBuyWithLeekPay = async () => {
     setIsProcessing(true)
     try {
+      // 1. Demander à ton API Vercel de créer la session LeekPay
       const res = await fetch(`${VERCEL_URL}/api/leekpay/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           amount: selectedFCFA, 
           description: `Achat de ${coinsToReceive} jetons XAFEARN`,
-          user_id: profile.id 
+          user_id: profile.id,
+          return_url: 'com.xafearn.app://checkout' // Lien de retour vers l'app
         })
       })
+      
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur LeekPay')
+
+      // 2. Ouvrir le navigateur in-app avec l'URL de paiement LeekPay
+      await Browser.open({ url: data.payment_url })
       
-      window.open(data.payment_url, '_system')
-      showToast('Redirection vers LeekPay...', 'info')
     } catch (err: any) {
       showToast(err.message, 'error')
       setIsProcessing(false)
@@ -171,7 +160,7 @@ export default function BuyCoinsPage() {
             className="w-full py-4 bg-sky-500 text-white font-bold rounded-xl active:scale-95 disabled:opacity-50 transition shadow-md flex justify-center items-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-            Payer par Mobile Money
+            {isProcessing ? 'Ouverture...' : 'Payer par Mobile Money'}
           </button>
         </div>
       </div>

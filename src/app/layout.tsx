@@ -4,6 +4,8 @@ import './globals.css'
 import BottomNav from '@/components/BottomNav'
 import AndroidBackHandler from '@/components/AndroidBackHandler'
 import NetworkStatus from '@/components/NetworkStatus'
+import PushNotificationSetup from '@/components/PushNotificationSetup'
+import DeepLinkHandler from '@/components/DeepLinkHandler'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -29,6 +31,8 @@ export default function RootLayout({
       <body className={`${inter.className} bg-slate-50 pb-16`}>
         <NetworkStatus />
         <AndroidBackHandler />
+        <PushNotificationSetup />
+        <DeepLinkHandler />
         {children}
         <BottomNav />
       </body>
