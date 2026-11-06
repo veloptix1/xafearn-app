@@ -39,25 +39,31 @@ export default function SignupPage() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!acceptTerms) return setError('Tu dois accepter les conditions.')
+    setError(null)
+
+    // 🛡️ VALIDATIONS STRICTES
+    if (!acceptTerms) return setError('Tu dois accepter les conditions d\'utilisation.')
     
-    // 🛡️ SÉCURITÉ : validations
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    if (!emailRegex.test(email)) return setError('Email invalide.')
-    if (password.length < 6) return setError('Mot de passe : 6 caractères minimum.')
+    if (!emailRegex.test(email)) return setError('Format d\'email invalide.')
+    
+    if (password.length < 6) return setError('Le mot de passe doit faire au moins 6 caractères.')
+    if (!/[A-Z]/.test(password)) return setError('Ajoute au moins une majuscule dans le mot de passe.')
+    if (!/[0-9]/.test(password)) return setError('Ajoute au moins un chiffre dans le mot de passe.')
+    
+    if (!fullName.trim() || fullName.trim().length < 2) return setError('Nom complet invalide.')
     if (!/^[0-9]{6,15}$/.test(phone.replace(/\s/g, ''))) return setError('Numéro de téléphone invalide.')
 
     setLoading(true)
-    setError(null)
 
     const fullPhone = `${selectedCountry.indicatif}${phone.replace(/\s/g, '')}`
 
     const { data, error } = await supabase.auth.signUp({
-      email,
+      email: email.trim().toLowerCase(),
       password,
       options: {
         data: {
-          full_name: fullName,
+          full_name: fullName.trim(),
           phone: fullPhone,
           country: selectedCountry.code,
           role: role,
@@ -72,16 +78,14 @@ export default function SignupPage() {
     }
 
     if (data.user) {
-      // On appelle l'API email en arrière-plan
+      // Envoi de l'email en arrière-plan (API de ton site)
       try {
         fetch(`${VERCEL_URL}/api/send-welcome`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, name: fullName })
         }).catch(console.error)
-      } catch (err) {
-        console.log('Erreur envoi email:', err)
-      }
+      } catch (err) {}
     }
 
     setSuccess(true)
@@ -96,7 +100,7 @@ export default function SignupPage() {
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
           </div>
           <h2 className="text-xl font-black mb-2 text-slate-900">Vérifie tes emails</h2>
-          <p className="text-slate-500 text-xs mb-6 leading-relaxed">Un lien de confirmation a été envoyé à <strong className="text-slate-900">{email}</strong>.</p>
+          <p className="text-slate-500 text-xs mb-6 leading-relaxed">Un lien de confirmation a été envoyé à <strong className="text-slate-900">{email}</strong>. Clique dessus pour activer ton compte.</p>
           <Link href="/login" className="block w-full py-3.5 bg-sky-500 text-white font-bold rounded-xl active:scale-95 transition">
             Aller à la connexion
           </Link>
@@ -149,6 +153,14 @@ export default function SignupPage() {
             <div>
               <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1.5">Mot de passe</label>
               <input type="password" required minLength={6} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 text-sm" />
+              <div className="bg-sky-50 border border-sky-100 p-2 rounded-lg mt-2">
+                <p className="text-[9px] text-sky-800 font-bold uppercase tracking-wider mb-1">Règles :</p>
+                <ul className="text-[9px] text-sky-700 space-y-0.5 list-disc pl-3">
+                  <li>6 caractères minimum</li>
+                  <li>Au moins 1 majuscule</li>
+                  <li>Au moins 1 chiffre</li>
+                </ul>
+              </div>
             </div>
 
             <label className="flex items-start gap-2 cursor-pointer pt-1">
@@ -158,7 +170,7 @@ export default function SignupPage() {
               </span>
             </label>
 
-            {error && <div className="text-red-500 text-xs text-center bg-red-50 p-2.5 rounded-lg">{error}</div>}
+            {error && <div className="text-red-500 text-[11px] text-center bg-red-50 p-2.5 rounded-lg font-medium">{error}</div>}
 
             <button type="submit" disabled={loading} className="w-full py-3.5 bg-sky-500 text-white font-bold rounded-xl active:scale-95 disabled:opacity-50 transition shadow-md">
               {loading ? 'Création...' : "S'inscrire"}

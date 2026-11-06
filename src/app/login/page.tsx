@@ -15,13 +15,28 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
     setError(null)
+
+    // 🛡️ VALIDATIONS
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) return setError('Format d\'email invalide.')
+    if (password.length < 6) return setError('Mot de passe trop court.')
+
+    setLoading(true)
     
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({ 
+      email: email.trim().toLowerCase(), 
+      password 
+    })
     
     if (error) {
-      setError(error.message)
+      if (error.message.includes('Invalid login credentials')) {
+        setError('Email ou mot de passe incorrect.')
+      } else if (error.message.includes('Email not confirmed')) {
+        setError('Confirme ton email avant de te connecter.')
+      } else {
+        setError(error.message)
+      }
       setLoading(false)
       return
     }
@@ -50,12 +65,12 @@ export default function LoginPage() {
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <label className="block text-[10px] font-bold text-slate-500 uppercase">Mot de passe</label>
-                <Link href="/forgot-password" className="text-[10px] text-sky-500 font-medium">Oublié ?</Link>
+                <Link href="/forgot-password" className="text-[10px] text-sky-500 font-bold">Oublié ?</Link>
               </div>
               <input type="password" required value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 text-sm" />
             </div>
 
-            {error && <div className="text-red-500 text-xs text-center bg-red-50 p-2.5 rounded-lg">{error}</div>}
+            {error && <div className="text-red-500 text-[11px] text-center bg-red-50 p-2.5 rounded-lg font-medium">{error}</div>}
 
             <button type="submit" disabled={loading} className="w-full py-3.5 bg-sky-500 text-white font-bold rounded-xl active:scale-95 disabled:opacity-50 transition shadow-md mt-2">
               {loading ? 'Connexion...' : 'Se connecter'}
