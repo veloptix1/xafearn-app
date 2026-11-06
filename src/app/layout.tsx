@@ -24,7 +24,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
-      <body className={`${inter.className} bg-slate-50 pb-20`}>
+      <body className={`${inter.className} bg-slate-50 pb-16`}>
         {children}
         <BottomNav />
       </body>
