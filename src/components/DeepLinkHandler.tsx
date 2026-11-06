@@ -19,11 +19,8 @@ export default function DeepLinkHandler() {
           console.log('Deep link reçu:', data.url)
 
           if (data.url.includes('checkout')) {
-            // L'utilisateur revient du paiement LeekPay
-            // On attend 2 secondes que le webhook LeekPay mette à jour Supabase
             setTimeout(() => {
               router.push('/dashboard/reseau')
-              // Recharger pour voir les nouveaux jetons
               window.location.reload()
             }, 2000)
           }
