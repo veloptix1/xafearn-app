@@ -19,6 +19,12 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      # 🚀 GÉNÉRATION DES ICÔNES SUR GITHUB ACTIONS (pas sur Termux)
+      - name: Generate app icons
+        run: |
+          npm install -D @capacitor/assets
+          npx @capacitor/assets generate --android
+
       - name: Build Next.js static
         run: npm run build
         env:
@@ -35,7 +41,7 @@ jobs:
       - name: Accept Android licenses
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      - name: Setup Capacitor
+      - name: Sync Capacitor
         run: npx cap sync android
 
       - name: Build Debug APK
@@ -44,12 +50,8 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleDebug
 
-      - name: Rename APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk xafearn.apk
-
-      # 🚀 ON UPLOAD DIRECTEMENT L'APK (SANS ZIP)
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: xafearn-apk
-          path: xafearn.apk
+          name: xafearn-app-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
