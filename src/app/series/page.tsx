@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
@@ -9,7 +8,6 @@ const CATEGORIES = ['Tout', 'Romance', 'Action', 'Thriller', 'Fantastique', 'Sci
 
 export default function AllSeriesPage() {
   const supabase = createClient()
-  const router = useRouter()
   const [series, setSeries] = useState<any[]>([])
   const [filteredSeries, setFilteredSeries] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -112,7 +110,7 @@ export default function AllSeriesPage() {
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {filteredSeries.map((s: any) => (
-              <Link key={s.id} href={`/series/${s.id}`} className="group flex flex-col">
+              <a key={s.id} href={`/series/${s.id}`} className="group flex flex-col">
                 <div className="aspect-[2/3] w-full rounded-2xl overflow-hidden bg-slate-200 mb-2 relative shadow-sm">
                   {s.cover_url ? (
                     <img src={s.cover_url} alt={s.title} className="w-full h-full object-cover" />
@@ -127,7 +125,7 @@ export default function AllSeriesPage() {
                 </div>
                 <h3 className="font-bold text-slate-900 text-sm leading-tight line-clamp-2 mb-1">{s.title}</h3>
                 <p className="text-[10px] text-slate-500 line-clamp-1">Par {s.profiles?.full_name || 'Anonyme'}</p>
-              </Link>
+              </a>
             ))}
           </div>
         )}

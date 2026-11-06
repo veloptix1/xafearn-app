@@ -36,13 +36,11 @@ export default function BuyCoinsPage() {
 
   const coinsToReceive = Math.floor((selectedFCFA / 1000) * COINS_PER_1000_FCFA)
 
-  // 🛡️ Achat avec solde (sécurisé avec RPC)
   const handleBuyWithBalance = async () => {
     if ((profile.balance || 0) < selectedFCFA) return showToast('Solde FCFA insuffisant.', 'error')
     setIsProcessing(true)
     
     try {
-      // Utilisation d'une fonction RPC sécurisée si elle existe, sinon update direct
       const { error: err1 } = await supabase.from('profiles').update({ 
         balance: profile.balance - selectedFCFA 
       }).eq('id', profile.id)
@@ -68,7 +66,6 @@ export default function BuyCoinsPage() {
     setIsProcessing(false)
   }
 
-  // 🛡️ Achat via LeekPay (appel à ton API Vercel)
   const handleBuyWithLeekPay = async () => {
     setIsProcessing(true)
     try {
@@ -84,7 +81,6 @@ export default function BuyCoinsPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Erreur LeekPay')
       
-      // Ouvre LeekPay dans le navigateur
       window.open(data.payment_url, '_system')
       showToast('Redirection vers LeekPay...', 'info')
     } catch (err: any) {
@@ -119,7 +115,6 @@ export default function BuyCoinsPage() {
 
       <div className="p-4 max-w-lg mx-auto">
         
-        {/* Solde */}
         <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm mb-5 flex justify-between items-center">
           <div>
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">Solde FCFA</p>
@@ -131,7 +126,6 @@ export default function BuyCoinsPage() {
           </div>
         </div>
 
-        {/* Packs de jetons */}
         <div className="space-y-3 mb-5">
           {[1000, 2500, 5000, 10000].map(amount => (
             <button 
@@ -161,7 +155,6 @@ export default function BuyCoinsPage() {
           ))}
         </div>
 
-        {/* Boutons de paiement */}
         <div className="space-y-2">
           <button 
             onClick={handleBuyWithBalance} 

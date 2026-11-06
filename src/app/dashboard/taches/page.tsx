@@ -29,7 +29,6 @@ export default function TasksPage() {
       setProfile(prof)
       setIsTestModeActive(prof?.is_test_mode === true)
 
-      // Charger les tâches et les campagnes de type 'task'
       const { data: t } = await supabase.from('tasks').select('*').eq('status', 'active')
       const { data: c } = await supabase.from('campaigns').select('*').eq('status', 'active').eq('display_type', 'task')
       
@@ -72,17 +71,13 @@ export default function TasksPage() {
 
   const submitProof = async () => {
     if (!screenshot) return showToast('Veuillez uploader une capture d\'écran.', 'warning')
-    
-    // 🛡️ SÉCURITÉ : Vérification du fichier
     if (screenshot.size > 5 * 1024 * 1024) return showToast('Image trop lourde (max 5 Mo).', 'error')
     if (!screenshot.type.startsWith('image/')) return showToast('Le fichier doit être une image.', 'error')
 
     setUploading(true)
-
     try {
       const fileName = `task-proof-${profile.id}-${Date.now()}.jpg`
       const { error: uploadError } = await supabase.storage.from('proof-videos').upload(fileName, screenshot)
-      
       if (uploadError) throw uploadError
       
       const { data: { publicUrl } } = supabase.storage.from('proof-videos').getPublicUrl(fileName)
@@ -126,7 +121,6 @@ export default function TasksPage() {
 
       <div className="p-4 max-w-lg mx-auto space-y-4">
         
-        {/* Blocage si mode test */}
         {isTestModeActive && (
           <div className="bg-amber-50 border border-amber-200 p-5 rounded-3xl text-center">
             <div className="w-12 h-12 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -140,7 +134,6 @@ export default function TasksPage() {
           </div>
         )}
 
-        {/* Bannière */}
         <div className="bg-gradient-to-br from-sky-500 to-blue-600 rounded-3xl p-5 text-white shadow-lg relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl transform translate-x-10 -translate-y-10"></div>
           <div className="relative z-10">
@@ -172,8 +165,13 @@ export default function TasksPage() {
                 <div className="p-5">
                   <div className="flex justify-between items-start mb-2">
                     <h3 className="font-bold text-slate-900 text-sm flex-1 pr-2">{task.title}</h3>
-                    <span className="bg-emerald-50 text-emerald-700 font-black text-xs px-2.5 py-1 rounded-lg border border-emerald-100 whitespace-nowrap">
-                      {task.type === 'diffusion_duration' ? `${task.gain_per_view} F/vue` : `+${task.reward} F`}
+                    <span className="bg-emerald-50 text-emerald-700 font-black text-xs px-2.5 py-1 rounded-lg border border-emerald-100 whitespace-nowrap flex items-center gap-1">
+                      {task.type === 'diffusion_duration' ? `${task.gain_per_view} F/vue` : (
+                        <>
+                          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" /><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" /></svg>
+                          {task.reward} F
+                        </>
+                      )}
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mb-4 leading-relaxed">{task.description}</p>
@@ -200,7 +198,6 @@ export default function TasksPage() {
         )}
       </div>
 
-      {/* Modal de preuve */}
       {activeTask && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4">
           <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md shadow-2xl p-6 animate-in slide-in-from-bottom duration-300">
@@ -213,16 +210,11 @@ export default function TasksPage() {
             <p className="text-xs text-slate-500 mb-4">Tâche : <strong className="text-slate-700">{activeTask.title}</strong></p>
             
             <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl mb-4">
-              <p className="text-[11px] text-amber-800 leading-relaxed">Fais une capture d'écran qui prouve que tu as bien réalisé la tâche et upload-la ici.</p>
+              <p className="text-[11px] text-amber-800 leading-relaxed">Fais une capture d'écran qui prouve que tu as bien réalisé la tâche.</p>
             </div>
 
             <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center relative mb-4">
-              <input 
-                type="file" 
-                accept="image/*" 
-                onChange={(e) => setScreenshot(e.target.files?.[0] || null)} 
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" 
-              />
+              <input type="file" accept="image/*" onChange={(e) => setScreenshot(e.target.files?.[0] || null)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
               {screenshot ? (
                 <div>
                   <p className="text-xs text-emerald-600 font-bold">Capture prête</p>

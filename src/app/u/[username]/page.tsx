@@ -16,6 +16,12 @@ export default function PublicProfilePage() {
   const [posts, setPosts] = useState<any[]>([])
   const [isFollowing, setIsFollowing] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' } | null>(null)
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 3500)
+  }
 
   useEffect(() => {
     async function load() {
@@ -26,40 +32,59 @@ export default function PublicProfilePage() {
       }
 
       const { data: prof } = await supabase.from('profiles').select('*').eq('id', userId).single()
-      if (!prof) return router.push('/dashboard')
+      if (!prof) {
+        setLoading(false)
+        return
+      }
       setProfile(prof)
 
       const { data: p } = await supabase.from('posts').select('*').eq('user_id', userId).order('created_at', { ascending: false })
       setPosts(p || [])
 
       if (user && user.id !== userId) {
-        const { data: f } = await supabase.from('follows').select('*').eq('follower_id', user.id).eq('following_id', userId).single()
+        const { data: f } = await supabase.from('follows').select('*').eq('follower_id', user.id).eq('following_id', userId).maybeSingle()
         setIsFollowing(!!f)
       }
 
       setLoading(false)
     }
     load()
-  }, [userId, router, supabase])
+  }, [userId])
 
   const handleFollow = async () => {
     if (!currentUser) return router.push('/login')
     if (isFollowing) {
       await supabase.from('follows').delete().eq('follower_id', currentUser.id).eq('following_id', userId)
       setIsFollowing(false)
+      showToast('Désabonné', 'success')
     } else {
       await supabase.from('follows').insert({ follower_id: currentUser.id, following_id: userId })
       setIsFollowing(true)
+      showToast('Abonné !', 'success')
     }
   }
 
   const handleShare = async () => {
     const shareUrl = `https://getagriculture.store/u/${userId}`
-    if (navigator.share) {
-      await navigator.share({ title: profile?.full_name, text: `Découvre le profil de ${profile?.full_name} sur XAFEARN`, url: shareUrl })
-    } else {
+    const shareText = `Découvre le profil de ${profile?.full_name} sur XAFEARN`
+
+    try {
+      const { Share } = await import('@capacitor/share')
+      await Share.share({
+        title: 'XAFEARN',
+        text: shareText,
+        url: shareUrl,
+        dialogTitle: 'Partager le profil'
+      })
+    } catch (err) {
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: 'XAFEARN', text: shareText, url: shareUrl })
+          return
+        } catch (e) {}
+      }
       await navigator.clipboard.writeText(shareUrl)
-      alert('Lien copié !')
+      showToast('Lien copié !', 'success')
     }
   }
 
@@ -69,14 +94,39 @@ export default function PublicProfilePage() {
     </div>
   )
 
+  if (!profile) return (
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
+      <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+      </div>
+      <h2 className="text-lg font-bold text-slate-900 mb-2">Profil introuvable</h2>
+      <p className="text-slate-500 text-sm mb-4">Cet utilisateur n'existe pas.</p>
+      <Link href="/dashboard/reseau" className="px-6 py-3 bg-sky-500 text-white font-bold rounded-xl">
+        Retour au réseau
+      </Link>
+    </div>
+  )
+
   const levelColor = profile?.level === 3 ? 'from-amber-400 to-amber-600' : profile?.level === 2 ? 'from-slate-400 to-slate-600' : 'from-orange-400 to-orange-600'
 
   return (
     <main className="min-h-screen bg-slate-50 pb-24">
+      
+      {/* TOAST */}
+      {toast && (
+        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl shadow-2xl font-bold text-sm text-white flex items-center gap-2 w-[90%] max-w-sm ${
+          toast.type === 'success' ? 'bg-gradient-to-r from-emerald-500 to-green-500' : 
+          toast.type === 'error' ? 'bg-gradient-to-r from-red-500 to-rose-500' : 
+          'bg-gradient-to-r from-slate-800 to-slate-900'
+        }`}>
+          {toast.message}
+        </div>
+      )}
+
       <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 px-5 py-4 sticky top-0 z-50 flex items-center gap-3">
-        <button onClick={() => router.back()} className="text-slate-500 bg-slate-100 p-2 rounded-full active:bg-slate-200 transition">
+        <Link href="/dashboard/reseau" className="text-slate-500 bg-slate-100 p-2 rounded-full active:bg-slate-200 transition">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-        </button>
+        </Link>
         <h1 className="text-lg font-black text-slate-900 flex-1">Profil</h1>
         <button onClick={handleShare} className="text-slate-500 bg-slate-100 p-2 rounded-full active:bg-slate-200 transition">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
@@ -85,7 +135,7 @@ export default function PublicProfilePage() {
 
       <div className="max-w-lg mx-auto">
         
-        {/* Carte profil */}
+        {/* CARTE PROFIL */}
         <div className="bg-white border-b border-slate-200 p-6 text-center relative overflow-hidden">
           <div className={`absolute top-0 left-0 w-full h-20 bg-gradient-to-r ${levelColor}`}></div>
           
@@ -105,7 +155,7 @@ export default function PublicProfilePage() {
             Niveau {profile?.level || 1}
           </div>
 
-          <div className="flex justify-center gap-6 mt-5 pt-4 border-t border-slate-100">
+          <div className="flex justify-center gap-8 mt-5 pt-4 border-t border-slate-100">
             <div className="text-center">
               <p className="text-lg font-black text-slate-900">{posts.length}</p>
               <p className="text-[10px] font-bold text-slate-400 uppercase">Publications</p>
@@ -130,18 +180,23 @@ export default function PublicProfilePage() {
           )}
         </div>
 
-        {/* Posts */}
+        {/* POSTS */}
         <div className="p-4 space-y-3">
           <h3 className="font-bold text-slate-900 text-sm">Publications</h3>
           {posts.length === 0 ? (
             <div className="bg-white border border-slate-200 p-8 rounded-2xl text-center text-slate-500 text-sm">
-              Aucune publication.
+              Aucune publication pour le moment.
             </div>
           ) : (
             posts.map(post => (
               <div key={post.id} className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                 {post.content_type === 'image' && post.image_url && (
                   <img src={post.image_url} className="w-full h-auto max-h-80 object-cover" alt="Post" />
+                )}
+                {post.content_type === 'video' && post.image_url && (
+                  <div className="relative w-full bg-black" style={{ aspectRatio: '9/16', maxHeight: '60vh' }}>
+                    <video src={post.image_url} controls playsInline className="w-full h-full object-cover" />
+                  </div>
                 )}
                 <div className="p-4">
                   <p className="text-sm text-slate-700 whitespace-pre-wrap">{post.text_content}</p>
