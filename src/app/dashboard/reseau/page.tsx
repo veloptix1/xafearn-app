@@ -5,23 +5,11 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
-const TIPS = [
-  "Soutiens tes créateurs préférés avec des jetons !",
-  "Découvre la bibliothèque de séries et gagne des récompenses.",
-  "Deviens créateur dans le Studio et monétise tes histoires.",
-  "Plus tu reçois de jetons, plus tu montes dans le classement !",
-  "Commente les publications qui te plaisent.",
-  "Publie du contenu de qualité pour attirer plus d'abonnés.",
-  "Recharge ton solde facilement avec le bouton '+ Jetons'.",
-  "Partage tes publications sur tes réseaux.",
-]
-
 export default function ReseauPage() {
   const supabase = createClient()
   const router = useRouter()
   
   const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
   const [profile, setProfile] = useState<any>(null)
   const [posts, setPosts] = useState<any[]>([])
   const [trending, setTrending] = useState<any[]>([])
@@ -33,36 +21,8 @@ export default function ReseauPage() {
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' | 'warning' } | null>(null)
   const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
     setToast({ message, type })
-    setTimeout(() => setToast(null), 4000)
+    setTimeout(() => setToast(null), 3500)
   }
-
-  useEffect(() => {
-    const randomTip = TIPS[Math.floor(Math.random() * TIPS.length)]
-    const timer = setTimeout(() => {
-      showToast(randomTip, 'info')
-    }, 1500)
-    return () => clearTimeout(timer)
-  }, [])
-
-  // Création de post
-  const [isCreateOpen, setIsCreateOpen] = useState(false)
-  const [newText, setNewText] = useState('')
-  const [newMedia, setNewMedia] = useState<File | null>(null)
-  const [mediaType, setMediaType] = useState<'image' | 'video'>('image')
-  const [isUploading, setIsUploading] = useState(false)
-
-  // Interactions
-  const [activePost, setActivePost] = useState<any>(null)
-  const [coinAmount, setCoinAmount] = useState(10)
-  const [isSending, setIsSending] = useState(false)
-  const [activeCommentPost, setActiveCommentPost] = useState<any>(null)
-  const [comments, setComments] = useState<any[]>([])
-  const [newComment, setNewComment] = useState('')
-  const [isCommenting, setIsCommenting] = useState(false)
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
-  const [editingPost, setEditingPost] = useState<any>(null)
-  const [editText, setEditText] = useState('')
-  const [deletingPostId, setDeletingPostId] = useState<string | null>(null)
 
   useEffect(() => {
     loadInitialData()
@@ -146,6 +106,8 @@ export default function ReseauPage() {
     setLoadingMore(false)
   }
 
+  const [loadingMore, setLoadingMore] = useState(false)
+
   const compressImage = (file: File): Promise<Blob> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -167,6 +129,13 @@ export default function ReseauPage() {
       }
     })
   }
+
+  // Création de post
+  const [isCreateOpen, setIsCreateOpen] = useState(false)
+  const [newText, setNewText] = useState('')
+  const [newMedia, setNewMedia] = useState<File | null>(null)
+  const [mediaType, setMediaType] = useState<'image' | 'video'>('image')
+  const [isUploading, setIsUploading] = useState(false)
 
   const handleCreatePost = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -216,6 +185,19 @@ export default function ReseauPage() {
     setIsUploading(false)
   }
 
+  // Interactions
+  const [activePost, setActivePost] = useState<any>(null)
+  const [coinAmount, setCoinAmount] = useState(10)
+  const [isSending, setIsSending] = useState(false)
+  const [activeCommentPost, setActiveCommentPost] = useState<any>(null)
+  const [comments, setComments] = useState<any[]>([])
+  const [newComment, setNewComment] = useState('')
+  const [isCommenting, setIsCommenting] = useState(false)
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null)
+  const [editingPost, setEditingPost] = useState<any>(null)
+  const [editText, setEditText] = useState('')
+  const [deletingPostId, setDeletingPostId] = useState<string | null>(null)
+
   const handleSendCoins = async () => {
     if (!activePost) return
     if ((profile.coins_balance || 0) < coinAmount) return showToast('Solde insuffisant.', 'error')
@@ -240,37 +222,34 @@ export default function ReseauPage() {
     setIsSending(false)
   }
 
-  // 🚀 SHARE CORRIGÉ
+  // 🚀 SHARE NATIF (plugin Capacitor)
   const handleShare = async (post: any) => {
-    // Utilisation de l'URL de prod (pas localhost)
     const PROD_URL = 'https://getagriculture.store'
     const shareUrl = `${PROD_URL}/u/${post.user_id}`
     const shareText = post.text_content 
-      ? `Découvre cette publication de ${post.profiles?.full_name} sur XAFEARN : ${post.text_content.substring(0, 50)}...` 
+      ? `Découvre cette publication de ${post.profiles?.full_name} sur XAFEARN !` 
       : `Découvre le profil de ${post.profiles?.full_name} sur XAFEARN`
 
-    // 1. Essayer Web Share API (native mobile)
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share({
-          title: post.profiles?.full_name + ' sur XAFEARN',
-          text: shareText,
-          url: shareUrl,
-        })
-        return
-      } catch (err: any) {
-        // Si l'utilisateur annule, on ignore
-        if (err.name === 'AbortError') return
-      }
-    }
-
-    // 2. Fallback : Copier le lien
     try {
-      await navigator.clipboard.writeText(shareUrl)
-      showToast('Lien copié ! Colle-le dans WhatsApp.', 'success')
+      // Essayer le plugin Capacitor Share
+      const { Share } = await import('@capacitor/share')
+      await Share.share({
+        title: 'XAFEARN',
+        text: shareText,
+        url: shareUrl,
+        dialogTitle: 'Partager avec...'
+      })
     } catch (err) {
-      // 3. Dernier recours : Ouvrir WhatsApp direct
-      window.open(`https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`, '_system')
+      // Fallback : Web Share API
+      if (navigator.share) {
+        try {
+          await navigator.share({ title: 'XAFEARN', text: shareText, url: shareUrl })
+          return
+        } catch (e) {}
+      }
+      // Dernier recours : copier
+      await navigator.clipboard.writeText(shareUrl)
+      showToast('Lien copié !', 'success')
     }
   }
 
@@ -340,7 +319,7 @@ export default function ReseauPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-purple-50 relative">
       
-      {/* TOAST PREMIUM */}
+      {/* TOAST */}
       {toast && (
         <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-[300] px-5 py-3 rounded-2xl shadow-2xl font-bold text-sm text-white flex items-center gap-2 w-[90%] max-w-sm animate-in slide-in-from-top duration-300 ${
           toast.type === 'success' ? 'bg-gradient-to-r from-emerald-500 to-green-500' : 
@@ -356,29 +335,31 @@ export default function ReseauPage() {
         </div>
       )}
 
-      {/* HEADER PREMIUM */}
+      {/* HEADER AVEC ONGLETS DÉFILABLES */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-slate-200/50 px-4 py-3 flex justify-between items-center shadow-sm">
-        <Link href="/dashboard" className="text-slate-700 bg-slate-100 p-2.5 rounded-full active:bg-slate-200 transition">
+        <Link href="/dashboard" className="text-slate-700 bg-slate-100 p-2.5 rounded-full active:bg-slate-200 transition shrink-0">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
         </Link>
         
-        <div className="flex gap-1 text-xs font-bold bg-slate-100 p-1 rounded-full">
-          <button onClick={() => setActiveTab('pour-toi')} className={`px-3 py-1.5 rounded-full transition ${activeTab === 'pour-toi' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}>Pour toi</button>
-          <button onClick={() => setActiveTab('recents')} className={`px-3 py-1.5 rounded-full transition ${activeTab === 'recents' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}>Récents</button>
-          <button onClick={() => setActiveTab('abonnements')} className={`px-3 py-1.5 rounded-full transition ${activeTab === 'abonnements' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}>Abos</button>
+        {/* Onglets défilables */}
+        <div className="flex-1 mx-2 overflow-x-auto no-scrollbar">
+          <div className="flex gap-1 text-xs font-bold bg-slate-100 p-1 rounded-full w-max">
+            <button onClick={() => setActiveTab('pour-toi')} className={`px-3 py-1.5 rounded-full transition whitespace-nowrap ${activeTab === 'pour-toi' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}>Pour toi</button>
+            <button onClick={() => setActiveTab('recents')} className={`px-3 py-1.5 rounded-full transition whitespace-nowrap ${activeTab === 'recents' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}>Récents</button>
+            <button onClick={() => setActiveTab('abonnements')} className={`px-3 py-1.5 rounded-full transition whitespace-nowrap ${activeTab === 'abonnements' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}>Abos</button>
+            <Link href="/series" className="px-3 py-1.5 rounded-full transition whitespace-nowrap bg-purple-100 text-purple-700 flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+              Séries
+            </Link>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Link href="/series" className="w-9 h-9 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center active:bg-purple-100 transition">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
-          </Link>
-          <Link href="/dashboard/jetons/acheter" className="w-9 h-9 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-full flex items-center justify-center shadow-md active:scale-95 transition">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-          </Link>
-        </div>
+        <Link href="/dashboard/jetons/acheter" className="w-9 h-9 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-full flex items-center justify-center shadow-md active:scale-95 transition shrink-0">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+        </Link>
       </header>
 
-      {/* STORIES / TENDANCES */}
+      {/* STORIES */}
       {trending.length > 0 && (
         <div className="bg-white/50 backdrop-blur-sm border-b border-slate-200/50 py-3">
           <div className="px-4 flex gap-4 overflow-x-auto no-scrollbar">
@@ -400,6 +381,7 @@ export default function ReseauPage() {
         </div>
       )}
 
+      {/* POSTS */}
       <div className="pt-3 pb-6">
         {posts.length === 0 && !loading ? (
           <div className="h-[60vh] flex flex-col items-center justify-center text-center px-6">
@@ -414,7 +396,6 @@ export default function ReseauPage() {
             {posts.map(post => (
               <div key={post.id} className="bg-white rounded-3xl overflow-hidden shadow-md border border-slate-100 mx-3">
                 
-                {/* Header du post */}
                 <div className="flex items-center justify-between p-3">
                   <Link href={`/u/${post.user_id}`} className="flex items-center gap-3 active:opacity-70 transition flex-1 min-w-0">
                     <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-full flex items-center justify-center font-bold text-white shadow-sm shrink-0">
@@ -441,7 +422,6 @@ export default function ReseauPage() {
                   )}
                 </div>
 
-                {/* Média */}
                 {post.content_type === 'image' && post.image_url && (
                   <div className="relative w-full bg-slate-100 flex justify-center">
                     <img src={post.image_url} className="w-full h-auto max-h-[60vh] object-contain" alt="Post" />
@@ -453,7 +433,6 @@ export default function ReseauPage() {
                   </div>
                 )}
 
-                {/* Contenu et actions */}
                 <div className="p-4">
                   <p className="text-sm text-slate-700 mb-3 whitespace-pre-wrap leading-relaxed">{post.text_content}</p>
                   

@@ -29,7 +29,7 @@ export default function TasksPage() {
       setProfile(prof)
       setIsTestModeActive(prof?.is_test_mode === true)
 
-      // Charger les tâches classiques et les campagnes de type 'task'
+      // Charger les tâches et les campagnes de type 'task'
       const { data: t } = await supabase.from('tasks').select('*').eq('status', 'active')
       const { data: c } = await supabase.from('campaigns').select('*').eq('status', 'active').eq('display_type', 'task')
       
