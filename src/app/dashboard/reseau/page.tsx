@@ -6,14 +6,14 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
 const TIPS = [
-  "Astuce : Soutiens tes créateurs préférés en leur envoyant des jetons !",
-  "Nouveau : Découvre la bibliothèque de séries et gagne des récompenses.",
+  "Soutiens tes créateurs préférés avec des jetons !",
+  "Découvre la bibliothèque de séries et gagne des récompenses.",
   "Deviens créateur dans le Studio et monétise tes histoires.",
-  "Plus tu reçois de jetons, plus tu montes dans le classement des tendances !",
-  "N'oublie pas de commenter les publications qui te plaisent.",
+  "Plus tu reçois de jetons, plus tu montes dans le classement !",
+  "Commente les publications qui te plaisent.",
   "Publie du contenu de qualité pour attirer plus d'abonnés.",
-  "Le bouton '+ Jetons' te permet de recharger ton solde facilement.",
-  "Partage tes publications sur tes réseaux pour gagner plus de visibilité.",
+  "Recharge ton solde facilement avec le bouton '+ Jetons'.",
+  "Partage tes publications sur tes réseaux.",
 ]
 
 export default function ReseauPage() {
@@ -31,27 +31,27 @@ export default function ReseauPage() {
   const POSTS_PER_PAGE = 10
 
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' | 'info' | 'warning' } | null>(null)
-  
+  const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    setToast({ message, type })
+    setTimeout(() => setToast(null), 4000)
+  }
+
   useEffect(() => {
     const randomTip = TIPS[Math.floor(Math.random() * TIPS.length)]
     const timer = setTimeout(() => {
-      setToast({ message: randomTip, type: 'info' })
-      setTimeout(() => setToast(null), 5000)
-    }, 1000)
+      showToast(randomTip, 'info')
+    }, 1500)
     return () => clearTimeout(timer)
   }, [])
 
-  const showToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
-    setToast({ message, type })
-    setTimeout(() => setToast(null), 3000)
-  }
-
+  // Création de post
   const [isCreateOpen, setIsCreateOpen] = useState(false)
   const [newText, setNewText] = useState('')
   const [newMedia, setNewMedia] = useState<File | null>(null)
   const [mediaType, setMediaType] = useState<'image' | 'video'>('image')
   const [isUploading, setIsUploading] = useState(false)
 
+  // Interactions
   const [activePost, setActivePost] = useState<any>(null)
   const [coinAmount, setCoinAmount] = useState(10)
   const [isSending, setIsSending] = useState(false)
@@ -87,7 +87,7 @@ export default function ReseauPage() {
         uniqueCreators.set(p.user_id, { id: p.user_id, name: (p.profiles as any).full_name, coins: p.total_coins_received })
       }
     })
-    setTrending(Array.from(uniqueCreators.values()).slice(0, 5))
+    setTrending(Array.from(uniqueCreators.values()).slice(0, 8))
 
     await fetchPosts(prof, 0)
     setLoading(false)
@@ -230,7 +230,7 @@ export default function ReseauPage() {
         link: '/dashboard/jetons/retirer'
       })
 
-      showToast(`Tu as envoyé ${coinAmount} jetons !`, 'success')
+      showToast(`${coinAmount} jetons envoyés !`, 'success')
       setActivePost(null)
       setPosts(posts.map(p => p.id === activePost.id ? { ...p, total_coins_received: (p.total_coins_received || 0) + coinAmount } : p))
       setProfile({ ...profile, coins_balance: profile.coins_balance - coinAmount })
@@ -240,57 +240,37 @@ export default function ReseauPage() {
     setIsSending(false)
   }
 
-  const handleDownloadWithLogo = async (post: any) => {
-    if (!post.image_url) return showToast("Pas d'image à télécharger.", 'warning')
-    try {
-      const img = new Image()
-      img.crossOrigin = 'anonymous'
-      img.src = post.image_url
-      await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject })
-      
-      const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')
-      if (!ctx) return
-      
-      canvas.width = img.width
-      canvas.height = img.height + 80
-      ctx.drawImage(img, 0, 0)
-      
-      ctx.fillStyle = '#ffffff'
-      ctx.fillRect(0, img.height, canvas.width, 80)
-      
-      ctx.fillStyle = '#0f172a'
-      ctx.font = 'bold 36px Arial'
-      ctx.textAlign = 'center'
-      ctx.fillText('XAFEARN', canvas.width / 2, img.height + 50)
-      
-      ctx.fillStyle = '#0ea5e9'
-      ctx.font = 'bold 18px Arial'
-      ctx.fillText('Statut • Partage • Gagne', canvas.width / 2, img.height + 70)
-      
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.9)
-      const link = document.createElement('a')
-      link.download = `xafearn-${post.id}.jpg`
-      link.href = dataUrl
-      link.click()
-      showToast('Image téléchargée !', 'success')
-    } catch (err) {
-      showToast('Erreur lors du téléchargement.', 'error')
-    }
-  }
-
+  // 🚀 SHARE CORRIGÉ
   const handleShare = async (post: any) => {
-    if (navigator.share) {
+    // Utilisation de l'URL de prod (pas localhost)
+    const PROD_URL = 'https://getagriculture.store'
+    const shareUrl = `${PROD_URL}/u/${post.user_id}`
+    const shareText = post.text_content 
+      ? `Découvre cette publication de ${post.profiles?.full_name} sur XAFEARN : ${post.text_content.substring(0, 50)}...` 
+      : `Découvre le profil de ${post.profiles?.full_name} sur XAFEARN`
+
+    // 1. Essayer Web Share API (native mobile)
+    if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         await navigator.share({
           title: post.profiles?.full_name + ' sur XAFEARN',
-          text: post.text_content || 'Découvre cette publication sur XAFEARN !',
-          url: window.location.origin + '/u/' + post.user_id,
+          text: shareText,
+          url: shareUrl,
         })
-      } catch (err) {}
-    } else {
-      await navigator.clipboard.writeText(window.location.origin + '/u/' + post.user_id)
-      showToast('Lien copié !', 'success')
+        return
+      } catch (err: any) {
+        // Si l'utilisateur annule, on ignore
+        if (err.name === 'AbortError') return
+      }
+    }
+
+    // 2. Fallback : Copier le lien
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      showToast('Lien copié ! Colle-le dans WhatsApp.', 'success')
+    } catch (err) {
+      // 3. Dernier recours : Ouvrir WhatsApp direct
+      window.open(`https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`, '_system')
     }
   }
 
@@ -358,91 +338,96 @@ export default function ReseauPage() {
   )
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-purple-50 relative pb-28">
+    <main className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-purple-50 relative">
       
-      {/* TOAST MOBILE */}
+      {/* TOAST PREMIUM */}
       {toast && (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[200] px-4 py-3 rounded-xl shadow-xl font-bold text-sm text-white flex items-center gap-2 w-[90%] max-w-sm ${
-          toast.type === 'success' ? 'bg-emerald-500' : 
-          toast.type === 'error' ? 'bg-red-500' : 
-          toast.type === 'warning' ? 'bg-amber-500' : 'bg-slate-800 border border-slate-700'
+        <div className={`fixed top-20 left-1/2 -translate-x-1/2 z-[300] px-5 py-3 rounded-2xl shadow-2xl font-bold text-sm text-white flex items-center gap-2 w-[90%] max-w-sm animate-in slide-in-from-top duration-300 ${
+          toast.type === 'success' ? 'bg-gradient-to-r from-emerald-500 to-green-500' : 
+          toast.type === 'error' ? 'bg-gradient-to-r from-red-500 to-rose-500' : 
+          toast.type === 'warning' ? 'bg-gradient-to-r from-amber-500 to-orange-500' : 
+          'bg-gradient-to-r from-slate-800 to-slate-900'
         }`}>
+          {toast.type === 'success' && <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" /></svg>}
+          {toast.type === 'error' && <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+          {toast.type === 'warning' && <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>}
           {toast.type === 'info' && <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
           <span className="flex-1 leading-tight">{toast.message}</span>
-          <button onClick={() => setToast(null)} className="opacity-70 hover:opacity-100">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
         </div>
       )}
 
-      {/* HEADER MOBILE */}
-      <header className="sticky top-0 z-50 px-4 py-3 bg-white/90 backdrop-blur-md border-b border-slate-200 flex justify-between items-center">
-        <Link href="/dashboard" className="text-slate-500 hover:text-slate-900 bg-slate-100 p-2 rounded-full">
+      {/* HEADER PREMIUM */}
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-xl border-b border-slate-200/50 px-4 py-3 flex justify-between items-center shadow-sm">
+        <Link href="/dashboard" className="text-slate-700 bg-slate-100 p-2.5 rounded-full active:bg-slate-200 transition">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
         </Link>
         
-        <div className="flex gap-1 text-xs font-bold bg-slate-100 p-1 rounded-full overflow-x-auto no-scrollbar max-w-[200px]">
-          <button onClick={() => setActiveTab('pour-toi')} className={`px-3 py-1.5 rounded-full transition whitespace-nowrap ${activeTab === 'pour-toi' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}>Pour toi</button>
-          <button onClick={() => setActiveTab('recents')} className={`px-3 py-1.5 rounded-full transition whitespace-nowrap ${activeTab === 'recents' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}>Récents</button>
-          <button onClick={() => setActiveTab('abonnements')} className={`px-3 py-1.5 rounded-full transition whitespace-nowrap ${activeTab === 'abonnements' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}>Abos</button>
+        <div className="flex gap-1 text-xs font-bold bg-slate-100 p-1 rounded-full">
+          <button onClick={() => setActiveTab('pour-toi')} className={`px-3 py-1.5 rounded-full transition ${activeTab === 'pour-toi' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}>Pour toi</button>
+          <button onClick={() => setActiveTab('recents')} className={`px-3 py-1.5 rounded-full transition ${activeTab === 'recents' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}>Récents</button>
+          <button onClick={() => setActiveTab('abonnements')} className={`px-3 py-1.5 rounded-full transition ${activeTab === 'abonnements' ? 'bg-white text-sky-600 shadow-sm' : 'text-slate-500'}`}>Abos</button>
         </div>
 
-        <Link href="/dashboard/jetons/acheter" className="w-9 h-9 bg-gradient-to-r from-amber-400 to-orange-500 text-white rounded-full flex items-center justify-center shadow-md">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/series" className="w-9 h-9 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center active:bg-purple-100 transition">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>
+          </Link>
+          <Link href="/dashboard/jetons/acheter" className="w-9 h-9 bg-gradient-to-br from-amber-400 to-orange-500 text-white rounded-full flex items-center justify-center shadow-md active:scale-95 transition">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+          </Link>
+        </div>
       </header>
 
-      <div className="pt-4">
-        
-        {/* TENDANCES MOBILE */}
-        {trending.length > 0 && (
-          <div className="px-4 py-3 mb-2 overflow-x-auto no-scrollbar">
-            <div className="flex gap-4">
-              {trending.map((creator) => (
-                <Link key={creator.id} href={`/u/${creator.username || creator.id}`} className="flex flex-col items-center gap-1 shrink-0 group">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-cyan-400 via-blue-500 to-purple-500 p-0.5 shadow-md">
-                    <div className="w-full h-full bg-white rounded-full flex items-center justify-center font-black text-xl text-slate-800">
-                      {creator.name.charAt(0)}
-                    </div>
+      {/* STORIES / TENDANCES */}
+      {trending.length > 0 && (
+        <div className="bg-white/50 backdrop-blur-sm border-b border-slate-200/50 py-3">
+          <div className="px-4 flex gap-4 overflow-x-auto no-scrollbar">
+            {trending.map((creator) => (
+              <Link key={creator.id} href={`/u/${creator.id}`} className="flex flex-col items-center gap-1.5 shrink-0 active:scale-95 transition">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-cyan-400 via-blue-500 to-purple-500 p-0.5 shadow-md">
+                  <div className="w-full h-full bg-white rounded-full flex items-center justify-center font-black text-xl text-slate-800">
+                    {creator.name.charAt(0)}
                   </div>
-                  <p className="text-[10px] font-bold text-slate-700 w-16 truncate text-center">{creator.name}</p>
-                  <div className="bg-amber-100 text-amber-700 text-[9px] font-bold px-2 py-0.5 rounded-full border border-amber-200 -mt-1 flex items-center gap-0.5">
-                    <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" /><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" /></svg>
-                    {creator.coins}
-                  </div>
-                </Link>
-              ))}
-            </div>
+                </div>
+                <p className="text-[10px] font-bold text-slate-700 w-16 truncate text-center">{creator.name.split(' ')[0]}</p>
+                <div className="bg-amber-100 text-amber-700 text-[9px] font-bold px-2 py-0.5 rounded-full -mt-1 flex items-center gap-0.5">
+                  <svg className="w-2.5 h-2.5" fill="currentColor" viewBox="0 0 20 20"><path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" /><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" /></svg>
+                  {creator.coins}
+                </div>
+              </Link>
+            ))}
           </div>
-        )}
+        </div>
+      )}
 
+      <div className="pt-3 pb-6">
         {posts.length === 0 && !loading ? (
           <div className="h-[60vh] flex flex-col items-center justify-center text-center px-6">
             <div className="w-20 h-20 bg-gradient-to-br from-sky-100 to-purple-100 rounded-full flex items-center justify-center mb-4">
               <svg className="w-10 h-10 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
             </div>
             <h3 className="font-black text-lg mb-1 text-slate-800">Aucun post à afficher</h3>
-            <p className="text-slate-500 text-sm">
-              {activeTab === 'abonnements' ? "Abonne-toi à des créateurs pour voir leurs publications ici." : "Sois le premier à publier !"}
-            </p>
+            <p className="text-slate-500 text-sm">{activeTab === 'abonnements' ? "Abonne-toi à des créateurs." : "Sois le premier à publier !"}</p>
           </div>
         ) : (
-          posts.map(post => (
-            <div key={post.id} className="mb-6 px-3">
-              <div className="bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-md relative">
+          <div className="space-y-4">
+            {posts.map(post => (
+              <div key={post.id} className="bg-white rounded-3xl overflow-hidden shadow-md border border-slate-100 mx-3">
+                
+                {/* Header du post */}
                 <div className="flex items-center justify-between p-3">
-                  <Link href={`/u/${post.user_id}`} className="flex items-center gap-3 active:opacity-80">
-                    <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-full flex items-center justify-center font-bold text-white shadow-sm">
+                  <Link href={`/u/${post.user_id}`} className="flex items-center gap-3 active:opacity-70 transition flex-1 min-w-0">
+                    <div className="w-10 h-10 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-full flex items-center justify-center font-bold text-white shadow-sm shrink-0">
                       {post.profiles?.full_name?.charAt(0)}
                     </div>
-                    <div>
-                      <p className="font-bold text-sm text-slate-900">@{post.profiles?.full_name}</p>
+                    <div className="min-w-0">
+                      <p className="font-bold text-sm text-slate-900 truncate">@{post.profiles?.full_name}</p>
                       <p className="text-[10px] text-slate-400">Publication</p>
                     </div>
                   </Link>
                   
                   {post.user_id === profile?.id && (
-                    <div className="relative">
+                    <div className="relative shrink-0">
                       <button onClick={() => setOpenMenuId(openMenuId === post.id ? null : post.id)} className="p-2 text-slate-400 active:text-slate-900">
                         <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
                       </button>
@@ -456,44 +441,43 @@ export default function ReseauPage() {
                   )}
                 </div>
 
+                {/* Média */}
                 {post.content_type === 'image' && post.image_url && (
                   <div className="relative w-full bg-slate-100 flex justify-center">
-                    <div className="absolute inset-0 bg-cover bg-center blur-xl opacity-50" style={{ backgroundImage: `url(${post.image_url})` }}></div>
-                    <img src={post.image_url} className="relative z-10 w-full h-auto max-h-[50vh] object-contain" alt="Post" />
+                    <img src={post.image_url} className="w-full h-auto max-h-[60vh] object-contain" alt="Post" />
                   </div>
                 )}
                 {post.content_type === 'video' && post.image_url && (
-                  <div className="relative w-full bg-black flex justify-center" style={{ aspectRatio: '9/16', maxHeight: '60vh' }}>
+                  <div className="relative w-full bg-black" style={{ aspectRatio: '9/16', maxHeight: '60vh' }}>
                     <video src={post.image_url} controls playsInline className="w-full h-full object-cover" />
                   </div>
                 )}
 
+                {/* Contenu et actions */}
                 <div className="p-4">
-                  <p className="text-sm text-slate-700 mb-4 whitespace-pre-wrap">{post.text_content}</p>
+                  <p className="text-sm text-slate-700 mb-3 whitespace-pre-wrap leading-relaxed">{post.text_content}</p>
+                  
                   <div className="flex items-center justify-between border-t border-slate-100 pt-3">
-                    <div className="flex gap-4">
-                      <button onClick={() => openComments(post)} className="flex items-center gap-1.5 text-sm text-slate-500 active:text-sky-500 transition">
+                    <div className="flex gap-5">
+                      <button onClick={() => openComments(post)} className="flex items-center gap-1.5 text-slate-500 active:text-sky-500 transition">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-                        <span className="font-bold">{post.comments_count || 0}</span>
+                        <span className="font-bold text-xs">{post.comments_count || 0}</span>
                       </button>
-                      {post.image_url && (
-                        <button onClick={() => handleDownloadWithLogo(post)} className="flex items-center gap-1.5 text-sm text-slate-500 active:text-emerald-500 transition">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                        </button>
-                      )}
-                      <button onClick={() => handleShare(post)} className="flex items-center gap-1.5 text-sm text-slate-500 active:text-purple-500 transition">
+                      
+                      <button onClick={() => handleShare(post)} className="flex items-center gap-1.5 text-slate-500 active:text-purple-500 transition">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
                       </button>
                     </div>
-                    <button onClick={() => { setActivePost(post); setCoinAmount(10); }} className="flex items-center gap-1.5 bg-amber-50 text-amber-600 px-4 py-2 rounded-full font-bold text-sm active:bg-amber-100 border border-amber-200 transition">
+                    
+                    <button onClick={() => { setActivePost(post); setCoinAmount(10); }} className="flex items-center gap-1.5 bg-amber-50 text-amber-600 px-3 py-1.5 rounded-full font-bold text-xs active:bg-amber-100 border border-amber-200 transition">
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" /><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" /></svg>
                       {post.total_coins_received || 0}
                     </button>
                   </div>
                 </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         )}
 
         {hasMore && posts.length > 0 && (
@@ -506,11 +490,11 @@ export default function ReseauPage() {
       </div>
 
       {/* BOUTON FLOTTANT CRÉATION */}
-      <button onClick={() => setIsCreateOpen(true)} className="fixed bottom-24 right-4 z-50 w-14 h-14 bg-gradient-to-tr from-sky-400 to-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/40 active:scale-90 transition">
+      <button onClick={() => setIsCreateOpen(true)} className="fixed bottom-24 right-4 z-50 w-14 h-14 bg-gradient-to-tr from-sky-400 to-blue-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/50 active:scale-90 transition">
         <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
       </button>
 
-      {/* MODAL CRÉATION */}
+      {/* MODALS */}
       {isCreateOpen && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4">
           <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 shadow-2xl animate-in slide-in-from-bottom duration-300">
@@ -522,7 +506,7 @@ export default function ReseauPage() {
             </div>
             <form onSubmit={handleCreatePost} className="space-y-4">
               <textarea placeholder="Quoi de neuf ?" value={newText} onChange={e => setNewText(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm resize-none focus:border-sky-400 outline-none" rows={3} />
-              <div className="flex gap-2 mb-2">
+              <div className="flex gap-2">
                 <button type="button" onClick={() => setMediaType('image')} className={`flex-1 py-2 rounded-lg font-bold text-sm transition ${mediaType === 'image' ? 'bg-sky-50 text-sky-600 border-2 border-sky-400' : 'bg-slate-100 text-slate-500'}`}>Image</button>
                 <button type="button" onClick={() => setMediaType('video')} className={`flex-1 py-2 rounded-lg font-bold text-sm transition ${mediaType === 'video' ? 'bg-sky-50 text-sky-600 border-2 border-sky-400' : 'bg-slate-100 text-slate-500'}`}>Vidéo (25s)</button>
               </div>
@@ -536,6 +520,57 @@ export default function ReseauPage() {
                   {isUploading ? 'Envoi...' : 'Publier'}
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {activePost && (
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-6 shadow-2xl animate-in slide-in-from-bottom duration-300">
+            <h2 className="text-xl font-black mb-2 text-center">Soutenir @{activePost.profiles?.full_name}</h2>
+            <p className="text-sm text-slate-500 text-center mb-6">Solde : <strong className="text-amber-500">{profile?.coins_balance || 0} jetons</strong></p>
+            <div className="grid grid-cols-2 gap-2 mb-6">
+              {[10, 50, 100, 500].map(amount => (
+                <button key={amount} onClick={() => setCoinAmount(amount)} className={`py-3.5 rounded-xl font-bold border-2 transition flex items-center justify-center gap-1.5 ${coinAmount === amount ? 'border-amber-400 bg-amber-50 text-amber-600' : 'border-slate-200 text-slate-600'}`}>
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" /><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" /></svg>
+                  {amount}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setActivePost(null)} className="flex-1 py-3.5 bg-slate-100 text-slate-700 font-bold rounded-xl">Annuler</button>
+              <button onClick={handleSendCoins} disabled={isSending} className="flex-1 py-3.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white font-bold rounded-xl disabled:opacity-50 shadow-md">
+                {isSending ? 'Envoi...' : 'Envoyer'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeCommentPost && (
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-900/60 backdrop-blur-sm" onClick={() => setActiveCommentPost(null)}>
+          <div className="bg-white w-full max-w-md rounded-t-3xl p-4 max-h-[80vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-100">
+              <h3 className="font-black text-lg">{comments.length} commentaires</h3>
+              <button onClick={() => setActiveCommentPost(null)} className="p-2 bg-slate-100 rounded-full text-slate-500">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-4 mb-4">
+              {comments.map(c => (
+                <div key={c.id} className="flex gap-3">
+                  <div className="w-8 h-8 bg-gradient-to-br from-sky-100 to-blue-100 rounded-full flex items-center justify-center text-xs font-bold text-sky-600 shrink-0">{c.profiles?.full_name?.charAt(0)}</div>
+                  <div className="bg-slate-50 p-3 rounded-2xl rounded-tl-none flex-1">
+                    <p className="text-xs font-bold text-slate-700 mb-0.5">{c.profiles?.full_name}</p>
+                    <p className="text-sm text-slate-800">{c.content}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <form onSubmit={handleAddComment} className="flex gap-2">
+              <input type="text" placeholder="Ajouter un commentaire..." value={newComment} onChange={e => setNewComment(e.target.value)} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-full text-sm outline-none focus:border-sky-400" />
+              <button type="submit" disabled={isCommenting || !newComment.trim()} className="px-5 py-3 bg-sky-500 text-white font-bold text-sm rounded-full disabled:opacity-50">Publier</button>
             </form>
           </div>
         </div>
@@ -568,59 +603,6 @@ export default function ReseauPage() {
               <button onClick={() => setDeletingPostId(null)} className="flex-1 py-3.5 bg-slate-100 text-slate-700 font-bold rounded-xl">Annuler</button>
               <button onClick={handleDeletePost} className="flex-1 py-3.5 bg-red-500 text-white font-bold rounded-xl shadow-md">Supprimer</button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL SOUTIEN */}
-      {activePost && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-sm p-6 shadow-2xl animate-in slide-in-from-bottom duration-300">
-            <h2 className="text-xl font-black mb-2 text-center text-slate-900">Soutenir @{activePost.profiles?.full_name}</h2>
-            <p className="text-sm text-slate-500 text-center mb-6">Solde : <strong className="text-amber-500">{profile?.coins_balance || 0} jetons</strong></p>
-            <div className="grid grid-cols-2 gap-2 mb-6">
-              {[10, 50, 100, 500].map(amount => (
-                <button key={amount} onClick={() => setCoinAmount(amount)} className={`py-3.5 rounded-xl font-bold border-2 transition flex items-center justify-center gap-1.5 ${coinAmount === amount ? 'border-amber-400 bg-amber-50 text-amber-600' : 'border-slate-200 text-slate-600'}`}>
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" /><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z" clipRule="evenodd" /></svg>
-                  {amount}
-                </button>
-              ))}
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setActivePost(null)} className="flex-1 py-3.5 bg-slate-100 text-slate-700 font-bold rounded-xl">Annuler</button>
-              <button onClick={handleSendCoins} disabled={isSending} className="flex-1 py-3.5 bg-gradient-to-r from-amber-400 to-orange-500 text-white font-bold rounded-xl disabled:opacity-50 shadow-md">
-                {isSending ? 'Envoi...' : 'Envoyer'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL COMMENTAIRES */}
-      {activeCommentPost && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-900/60 backdrop-blur-sm" onClick={() => setActiveCommentPost(null)}>
-          <div className="bg-white w-full max-w-md rounded-t-3xl p-4 max-h-[80vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom duration-300" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-4 pb-2 border-b border-slate-100">
-              <h3 className="font-black text-lg">{comments.length} commentaires</h3>
-              <button onClick={() => setActiveCommentPost(null)} className="p-2 bg-slate-100 rounded-full text-slate-500">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto space-y-4 mb-4">
-              {comments.map(c => (
-                <div key={c.id} className="flex gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-sky-100 to-blue-100 rounded-full flex items-center justify-center text-xs font-bold text-sky-600 shrink-0">{c.profiles?.full_name?.charAt(0)}</div>
-                  <div className="bg-slate-50 p-3 rounded-2xl rounded-tl-none flex-1">
-                    <p className="text-xs font-bold text-slate-700 mb-0.5">{c.profiles?.full_name}</p>
-                    <p className="text-sm text-slate-800">{c.content}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <form onSubmit={handleAddComment} className="flex gap-2">
-              <input type="text" placeholder="Ajouter un commentaire..." value={newComment} onChange={e => setNewComment(e.target.value)} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-full text-sm outline-none focus:border-sky-400" />
-              <button type="submit" disabled={isCommenting || !newComment.trim()} className="px-5 py-3 bg-sky-500 text-white font-bold text-sm rounded-full disabled:opacity-50">Publier</button>
-            </form>
           </div>
         </div>
       )}

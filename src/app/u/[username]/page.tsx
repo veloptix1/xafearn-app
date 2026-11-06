@@ -1,117 +1,157 @@
 'use client'
 
-import { notFound } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import FollowButton from './FollowButton'
 
-async function ProfileContent({ idPromise }: { idPromise: Promise<{ username: string }> }) {
-  const resolvedParams = await idPromise
+export default function PublicProfilePage() {
   const supabase = createClient()
-  
-  const { data: { user: currentUser } } = await supabase.auth.getUser()
+  const router = useRouter()
+  const params = useParams()
+  const userId = params.username as string
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', resolvedParams.username).maybeSingle()
-  if (!profile) return notFound()
+  const [loading, setLoading] = useState(true)
+  const [profile, setProfile] = useState<any>(null)
+  const [posts, setPosts] = useState<any[]>([])
+  const [isFollowing, setIsFollowing] = useState(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
 
-  const { data: posts } = await supabase.from('posts').select('*').eq('user_id', profile.id).order('created_at', { ascending: false })
+  useEffect(() => {
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: me } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+        setCurrentUser(me)
+      }
 
-  const totalCoins = posts?.reduce((acc, p) => acc + (p.total_coins_received || 0), 0) || 0
-  const { count: followersCount } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profile.id)
-  const { count: followingCount } = await supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profile.id)
+      const { data: prof } = await supabase.from('profiles').select('*').eq('id', userId).single()
+      if (!prof) return router.push('/dashboard')
+      setProfile(prof)
 
-  let isFollowing = false
-  if (currentUser) {
-    const { data: follow } = await supabase.from('follows').select('id').eq('follower_id', currentUser.id).eq('following_id', profile.id).maybeSingle()
-    isFollowing = !!follow
+      const { data: p } = await supabase.from('posts').select('*').eq('user_id', userId).order('created_at', { ascending: false })
+      setPosts(p || [])
+
+      if (user && user.id !== userId) {
+        const { data: f } = await supabase.from('follows').select('*').eq('follower_id', user.id).eq('following_id', userId).single()
+        setIsFollowing(!!f)
+      }
+
+      setLoading(false)
+    }
+    load()
+  }, [userId, router, supabase])
+
+  const handleFollow = async () => {
+    if (!currentUser) return router.push('/login')
+    if (isFollowing) {
+      await supabase.from('follows').delete().eq('follower_id', currentUser.id).eq('following_id', userId)
+      setIsFollowing(false)
+    } else {
+      await supabase.from('follows').insert({ follower_id: currentUser.id, following_id: userId })
+      setIsFollowing(true)
+    }
   }
-  const isMyProfile = currentUser?.id === profile.id
+
+  const handleShare = async () => {
+    const shareUrl = `https://getagriculture.store/u/${userId}`
+    if (navigator.share) {
+      await navigator.share({ title: profile?.full_name, text: `Découvre le profil de ${profile?.full_name} sur XAFEARN`, url: shareUrl })
+    } else {
+      await navigator.clipboard.writeText(shareUrl)
+      alert('Lien copié !')
+    }
+  }
+
+  if (loading) return (
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="w-8 h-8 border-4 border-sky-200 border-t-sky-500 rounded-full animate-spin"></div>
+    </div>
+  )
+
+  const levelColor = profile?.level === 3 ? 'from-amber-400 to-amber-600' : profile?.level === 2 ? 'from-slate-400 to-slate-600' : 'from-orange-400 to-orange-600'
 
   return (
-    <div className="max-w-2xl mx-auto pb-24">
-      {/* Bannière de couverture */}
-      <div className="h-32 bg-gradient-to-r from-sky-500 to-indigo-600 w-full rounded-b-3xl relative">
-        <div className="absolute -bottom-12 left-1/2 -translate-x-1/2">
-          <div className="w-24 h-24 bg-slate-900 border-4 border-slate-50 rounded-full flex items-center justify-center text-4xl font-black text-white shadow-lg">
-            {profile.full_name?.charAt(0)}
-          </div>
-        </div>
-      </div>
+    <main className="min-h-screen bg-slate-50 pb-24">
+      <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 px-5 py-4 sticky top-0 z-50 flex items-center gap-3">
+        <button onClick={() => router.back()} className="text-slate-500 bg-slate-100 p-2 rounded-full active:bg-slate-200 transition">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+        </button>
+        <h1 className="text-lg font-black text-slate-900 flex-1">Profil</h1>
+        <button onClick={handleShare} className="text-slate-500 bg-slate-100 p-2 rounded-full active:bg-slate-200 transition">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+        </button>
+      </header>
 
-      <div className="px-4 mt-16 text-center">
-        <h1 className="text-2xl font-black text-slate-900">{profile.full_name}</h1>
-        <p className="text-sm text-slate-500 mb-6">Créateur XAFEARN</p>
+      <div className="max-w-lg mx-auto">
         
-        {/* Stats */}
-        <div className="flex justify-center gap-6 mb-6">
-          <div className="text-center">
-            <p className="text-lg font-black text-slate-900">{posts?.length || 0}</p>
-            <p className="text-xs font-bold text-slate-500 uppercase">Posts</p>
+        {/* Carte profil */}
+        <div className="bg-white border-b border-slate-200 p-6 text-center relative overflow-hidden">
+          <div className={`absolute top-0 left-0 w-full h-20 bg-gradient-to-r ${levelColor}`}></div>
+          
+          <div className="relative z-10 mt-6">
+            <div className="w-24 h-24 bg-white p-1 rounded-full shadow-lg mx-auto">
+              <div className="w-full h-full bg-gradient-to-br from-sky-100 to-blue-100 rounded-full flex items-center justify-center text-4xl font-black text-sky-600">
+                {profile?.full_name?.charAt(0) || '?'}
+              </div>
+            </div>
           </div>
-          <div className="text-center">
-            <p className="text-lg font-black text-slate-900">{followersCount || 0}</p>
-            <p className="text-xs font-bold text-slate-500 uppercase">Abonnés</p>
+
+          <h2 className="text-xl font-black text-slate-900 mt-3">{profile?.full_name}</h2>
+          <p className="text-sm text-slate-500">{profile?.city || 'Ville non définie'}</p>
+          
+          <div className="mt-3 inline-flex items-center gap-1.5 bg-amber-50 text-amber-600 px-3 py-1 rounded-full border border-amber-100 text-xs font-bold">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" /></svg>
+            Niveau {profile?.level || 1}
           </div>
-          <div className="text-center">
-            <p className="text-lg font-black text-slate-900">{followingCount || 0}</p>
-            <p className="text-xs font-bold text-slate-500 uppercase">Abonnements</p>
+
+          <div className="flex justify-center gap-6 mt-5 pt-4 border-t border-slate-100">
+            <div className="text-center">
+              <p className="text-lg font-black text-slate-900">{posts.length}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Publications</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-black text-amber-500">{profile?.coins_balance || 0}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Jetons</p>
+            </div>
           </div>
-          <div className="text-center">
-            <p className="text-lg font-black text-amber-500">🪙 {totalCoins}</p>
-            <p className="text-xs font-bold text-slate-500 uppercase">Jetons</p>
-          </div>
+
+          {currentUser && currentUser.id !== userId && (
+            <button 
+              onClick={handleFollow} 
+              className={`mt-4 w-full py-3 rounded-xl font-bold transition active:scale-95 ${
+                isFollowing 
+                  ? 'bg-slate-100 text-slate-700' 
+                  : 'bg-sky-500 text-white shadow-md shadow-sky-500/30'
+              }`}
+            >
+              {isFollowing ? 'Se désabonner' : 'Suivre'}
+            </button>
+          )}
         </div>
 
-        {!isMyProfile && currentUser && (
-          <div className="flex justify-center mb-8">
-            <FollowButton currentUserId={currentUser.id} profileId={profile.id} initialIsFollowing={isFollowing} />
-          </div>
-        )}
-      </div>
-
-      <div className="px-4">
-        <h2 className="font-bold text-slate-900 mb-3 text-left border-b border-slate-200 pb-2">Publications</h2>
-        <div className="grid grid-cols-3 gap-1">
-          {posts?.length === 0 ? (
-            <p className="col-span-3 text-center text-slate-500 py-8">Aucune publication.</p>
+        {/* Posts */}
+        <div className="p-4 space-y-3">
+          <h3 className="font-bold text-slate-900 text-sm">Publications</h3>
+          {posts.length === 0 ? (
+            <div className="bg-white border border-slate-200 p-8 rounded-2xl text-center text-slate-500 text-sm">
+              Aucune publication.
+            </div>
           ) : (
-            posts?.map(post => (
-              <div key={post.id} className="aspect-square bg-slate-100 rounded-md overflow-hidden relative group">
-                {post.content_type === 'image' || post.content_type === 'video' ? (
-                  <img src={post.image_url!} className="w-full h-full object-cover group-hover:scale-110 transition duration-300" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center p-2 bg-gradient-to-br from-slate-800 to-slate-900 text-white text-[10px] text-center font-medium">
-                    {post.text_content?.substring(0, 40)}...
-                  </div>
+            posts.map(post => (
+              <div key={post.id} className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                {post.content_type === 'image' && post.image_url && (
+                  <img src={post.image_url} className="w-full h-auto max-h-80 object-cover" alt="Post" />
                 )}
-                {post.content_type === 'video' && (
-                  <div className="absolute top-1 right-1 bg-black/50 p-1 rounded-md text-white">
-                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-                  </div>
-                )}
+                <div className="p-4">
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap">{post.text_content}</p>
+                  <p className="text-[10px] text-slate-400 mt-2">{new Date(post.created_at).toLocaleDateString('fr-FR')}</p>
+                </div>
               </div>
             ))
           )}
         </div>
       </div>
-    </div>
-  )
-}
-
-export default function PublicProfilePage({ params }: { params: Promise<{ username: string }> }) {
-  return (
-    <main className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-50 flex items-center gap-4">
-        <Link href="/dashboard/reseau" className="text-slate-500 hover:text-slate-900 bg-slate-100 p-2 rounded-full">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-        </Link>
-        <h1 className="text-lg font-bold text-slate-900">Profil</h1>
-      </header>
-
-      <Suspense fallback={<div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-sky-200 border-t-sky-500 rounded-full animate-spin"></div></div>}>
-        <ProfileContent idPromise={params} />
-      </Suspense>
     </main>
   )
 }
