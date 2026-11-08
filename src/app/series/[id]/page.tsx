@@ -5,6 +5,11 @@ import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
+// 🔥 OBLIGATOIRE POUR LE BUILD STATIQUE
+export async function generateStaticParams() {
+  return [{ id: 'default' }]
+}
+
 export default function SeriesDetailPage() {
   const supabase = createClient()
   const router = useRouter()
@@ -18,6 +23,12 @@ export default function SeriesDetailPage() {
     async function load() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return router.replace('/login')
+
+      // Si l'ID est 'default' (page générée au build), on ne charge rien
+      if (seriesId === 'default') {
+        setLoading(false)
+        return
+      }
 
       const { data: s } = await supabase.from('series').select('*, profiles(full_name)').eq('id', seriesId).single()
       if (!s) { setLoading(false); return }
