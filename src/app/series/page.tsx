@@ -53,7 +53,8 @@ export default function SeriesPage() {
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {filtered.map(s => (
-              <Link key={s.id} href={`/series/${s.id}`} className="block bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm active:scale-95 transition">
+              // 🔥 LIEN AVEC HASH
+              <Link key={s.id} href={`/series/#${s.id}`} className="block bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm active:scale-95 transition">
                 {s.cover_url ? (
                   <img src={s.cover_url} alt="" className="w-full h-32 object-cover" />
                 ) : (

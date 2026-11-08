@@ -51,6 +51,9 @@ export default function MessagesPage() {
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
         </Link>
         <h1 className="font-bold text-slate-900 flex-1">Messages</h1>
+        <Link href="https://getagriculture.store/dashboard/messages/new-group" className="w-9 h-9 bg-sky-500 text-white rounded-full flex items-center justify-center active:scale-95 transition">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
+        </Link>
       </header>
 
       <div className="p-4 max-w-md mx-auto">
@@ -69,8 +72,9 @@ export default function MessagesPage() {
             const name = isGroup ? c.group_name : other?.full_name
             const avatar = isGroup ? c.group_avatar_url : null
 
+            // 🔥 LIEN AVEC HASH
             return (
-              <Link key={c.id} href={`/dashboard/messages/${c.id}`} className="block bg-white border border-slate-200 rounded-2xl p-4 shadow-sm active:bg-slate-50 transition">
+              <Link key={c.id} href={`/dashboard/messages/#${c.id}`} className="block bg-white border border-slate-200 rounded-2xl p-4 shadow-sm active:bg-slate-50 transition">
                 <div className="flex items-center gap-3">
                   {avatar ? (
                     <img src={avatar} alt="" className="w-12 h-12 rounded-full object-cover" />

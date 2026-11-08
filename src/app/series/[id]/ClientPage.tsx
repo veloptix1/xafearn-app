@@ -1,28 +1,34 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
 export default function SeriesDetailClient() {
   const supabase = createClient()
   const router = useRouter()
-  const params = useParams()
-  const seriesId = params.id as string
+  const [seriesId, setSeriesId] = useState<string | null>(null)
   const [series, setSeries] = useState<any>(null)
   const [episodes, setEpisodes] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
+  // 🔥 Lire l'ID depuis le HASH
   useEffect(() => {
+    const hash = window.location.hash.replace('#', '')
+    if (hash) {
+      setSeriesId(hash)
+    } else {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!seriesId) return
+    
     async function load() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return router.replace('/login')
-
-      if (seriesId === 'default') {
-        setLoading(false)
-        return
-      }
 
       const { data: s } = await supabase.from('series').select('*, profiles(full_name)').eq('id', seriesId).single()
       if (!s) { setLoading(false); return }
@@ -37,7 +43,7 @@ export default function SeriesDetailClient() {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="w-8 h-8 border-4 border-sky-200 border-t-sky-500 rounded-full animate-spin"></div></div>
 
-  if (!series) return (
+  if (!seriesId || !series) return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
       <p className="text-slate-500 mb-4">Série introuvable.</p>
       <Link href="/series" className="px-6 py-3 bg-sky-500 text-white font-bold rounded-xl">Retour</Link>
