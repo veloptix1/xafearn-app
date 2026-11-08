@@ -1,0 +1,91 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Prepare build (exclude API routes)
+        run: python3 prepare_build.py
+
+      - name: Configure Next.js for static export
+        run: |
+          cat > next.config.ts << 'NEXTCONFIG'
+          import type { NextConfig } from "next";
+
+          const nextConfig: NextConfig = {
+            output: 'export',
+            images: { unoptimized: true },
+            typescript: {
+              ignoreBuildErrors: true,
+            },
+          };
+
+          export default nextConfig;
+          NEXTCONFIG
+
+      - name: Generate app icons
+        run: |
+          npm install -D @capacitor/assets
+          npx @capacitor/assets generate --android
+
+      - name: Build Next.js static
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME: ${{ secrets.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME }}
+          NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET: ${{ secrets.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET }}
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '21'
+
+      - name: Accept Android licenses
+        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Pre-download Gradle with retry
+        run: |
+          cd android
+          chmod +x gradlew
+          # Essaie de télécharger Gradle jusqu'à 5 fois avec un délai
+          for i in {1..5}; do
+            echo "Tentative $i de téléchargement de Gradle..."
+            if ./gradlew --version > /dev/null 2>&1; then
+              echo "Gradle téléchargé avec succès."
+              exit 0
+            fi
+            echo "Échec, nouvelle tentative dans 10 secondes..."
+            sleep 10
+          done
+          echo "Impossible de télécharger Gradle après 5 tentatives."
+          exit 1
+
+      - name: Build Debug APK
+        run: |
+          cd android
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: xafearn-app-debug
+          path: android/app/build/outputs/apk/debug/app-debug.apk
