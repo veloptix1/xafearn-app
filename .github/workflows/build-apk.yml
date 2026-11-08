@@ -17,10 +17,16 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install @capacitor/share
+        run: npm install @capacitor/share @capacitor/camera @capacitor/push-notifications @capacitor/network @capacitor/preferences @capacitor/filesystem
 
       - name: Prepare build (exclude API routes)
         run: python3 prepare_build.py
+
+      - name: Prepare mobile build (exclude dynamic pages)
+        run: |
+          python3 fix_dashboard_build.py || true
+          python3 fix_messages_build.py || true
+          python3 fix_mobile_dynamic.py || true
 
       - name: Configure Next.js for static export
         run: |
@@ -43,9 +49,6 @@ jobs:
           npm install -D @capacitor/assets
           npx @capacitor/assets generate --android
 
-      - name: Exclude dynamic pages from build
-        run: python3 fix_messages_build.py
-
       - name: Build Next.js static
         run: npm run build
         env:
@@ -65,22 +68,11 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync android
 
-      - name: Pre-download Gradle with retry
+      - name: Clean Gradle Cache
         run: |
           cd android
           chmod +x gradlew
-          # Essaie de télécharger Gradle jusqu'à 5 fois avec un délai
-          for i in {1..5}; do
-            echo "Tentative $i de téléchargement de Gradle..."
-            if ./gradlew --version > /dev/null 2>&1; then
-              echo "Gradle téléchargé avec succès."
-              exit 0
-            fi
-            echo "Échec, nouvelle tentative dans 10 secondes..."
-            sleep 10
-          done
-          echo "Impossible de télécharger Gradle après 5 tentatives."
-          exit 1
+          ./gradlew clean
 
       - name: Build Debug APK
         run: |
