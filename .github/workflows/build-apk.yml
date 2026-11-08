@@ -17,7 +17,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm install @capacitor/share
 
       - name: Prepare build (exclude API routes)
         run: python3 prepare_build.py
@@ -42,6 +42,9 @@ jobs:
         run: |
           npm install -D @capacitor/assets
           npx @capacitor/assets generate --android
+
+      - name: Exclude dynamic pages from build
+        run: python3 fix_messages_build.py
 
       - name: Build Next.js static
         run: npm run build
