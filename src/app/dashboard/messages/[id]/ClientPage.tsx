@@ -79,7 +79,7 @@ export default function ChatClient() {
         }
       }
 
-      await loadMessages(conversationId)
+      await loadMessages(conversationId as string)
       setLoading(false)
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
 

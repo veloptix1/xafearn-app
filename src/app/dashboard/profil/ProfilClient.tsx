@@ -10,6 +10,11 @@ export default function ProfilClient({ profile: initialProfile }: { profile: any
   const [profile, setProfile] = useState(initialProfile)
   const [isAnnonceurMode, setIsAnnonceurMode] = useState(profile?.role === 'annonceur')
 
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    router.replace('/login')
+  }
+
   const toggleMode = async () => {
     const newMode = !isAnnonceurMode
     setIsAnnonceurMode(newMode)
@@ -121,12 +126,12 @@ export default function ProfilClient({ profile: initialProfile }: { profile: any
       </div>
 
       {/* Déconnexion */}
-      <form action="/auth/signout" method="post">
-        <button type="submit" className="w-full py-4 bg-white border border-red-200 text-red-600 font-bold rounded-2xl hover:bg-red-50 transition flex justify-center items-center gap-2 shadow-sm">
+      <div>
+        <button type="button" onClick={handleSignOut} className="w-full py-4 bg-white border border-red-200 text-red-600 font-bold rounded-2xl hover:bg-red-50 transition flex justify-center items-center gap-2 shadow-sm">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
           Se déconnecter
         </button>
-      </form>
+      </div>
     </div>
   )
 }

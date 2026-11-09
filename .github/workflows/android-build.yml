@@ -5,6 +5,9 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,13 +20,10 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
-      # 🚀 GÉNÉRATION DES ICÔNES SUR GITHUB ACTIONS (pas sur Termux)
       - name: Generate app icons
-        run: |
-          npm install -D @capacitor/assets
-          npx @capacitor/assets generate --android
+        run: npx @capacitor/assets generate --android
 
       - name: Build Next.js static
         run: npm run build
@@ -48,7 +48,7 @@ jobs:
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
+          ./gradlew clean assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

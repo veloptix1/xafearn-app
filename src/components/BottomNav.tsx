@@ -19,8 +19,13 @@ export default function BottomNav() {
     '/dashboard/reseau', // On cache sur la page réseau (demandé précédemment)
   ]
 
+  // Sections entières où la nav est cachée (ex: messagerie plein écran)
+  const hiddenPrefixes = ['/dashboard/messages']
+
   // Si on est sur une page qui cache la nav, on retourne null
-  if (hiddenRoutes.includes(pathname)) return null
+  const path = pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname
+  if (hiddenRoutes.includes(path)) return null
+  if (hiddenPrefixes.some((p) => path === p || path.startsWith(p + '/'))) return null
 
   const navItems = [
     { href: '/dashboard', label: 'Accueil', icon: (
