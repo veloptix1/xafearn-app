@@ -30,6 +30,9 @@ Settings → Environment Variables, puis **Redeploy** :
 - **Site** (`xafearn`) : appliquer `xafearn-site-push.patch`, commit, push (Vercel redéploie seul).
 - **App** (`xafearn-app`) : appliquer `xafearn-phase3-app.patch`, commit, push → le build APK se lance.
 
+> ℹ️ Tant que `google-services.json` n'est pas fourni (étape 1.3), le build désactive automatiquement les notifications
+> push : l'app fonctionne normalement, simplement sans notifications. Une fois le fichier ajouté, relance le build.
+
 ## 5. Tester
 1. Installe le nouvel APK, connecte-toi, **accepte** la demande d'autorisation des notifications.
 2. Supabase → Table Editor → `notifications` → *Insert row* avec ton `user_id`, un titre et un message.

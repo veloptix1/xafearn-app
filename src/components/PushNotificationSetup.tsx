@@ -20,6 +20,9 @@ export default function PushNotificationSetup() {
 
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return
+    // Sans google-services.json, l'appel natif register() fait planter l'application :
+    // on n'active donc les notifications que si le build l'a confirmé (voir android-build.yml).
+    if (process.env.NEXT_PUBLIC_PUSH_ENABLED !== 'true') return
 
     let disposed = false
     const handles: PluginListenerHandle[] = []
