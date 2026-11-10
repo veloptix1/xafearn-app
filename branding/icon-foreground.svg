@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<defs>
+  <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#38bdf8"/><stop offset="0.5" stop-color="#0284c7"/><stop offset="1" stop-color="#1e3a8a"/>
+  </linearGradient>
+  <radialGradient id="glow" cx="0.2" cy="0.12" r="0.8">
+    <stop offset="0" stop-color="#ffffff" stop-opacity="0.28"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="gw" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#d9f0ff"/>
+  </linearGradient>
+  <linearGradient id="gg" x1="0" y1="1" x2="1" y2="0">
+    <stop offset="0" stop-color="#fcd34d"/><stop offset="1" stop-color="#f59e0b"/>
+  </linearGradient>
+  <filter id="sh" x="-25%" y="-25%" width="150%" height="150%">
+    <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#001a4d" flood-opacity="0.38"/>
+  </filter>
+  <mask id="cut" maskUnits="userSpaceOnUse" x="0" y="0" width="1024" height="1024">
+    <rect width="1024" height="1024" fill="#fff"/>
+    <line x1="292" y1="732" x2="716" y2="308" stroke="#000" stroke-width="150" stroke-linecap="round"/>
+  </mask>
+</defs>
+<g transform="translate(-18 18)" filter="url(#sh)">
+  <line x1="268" y1="268" x2="756" y2="756" stroke="url(#gw)" stroke-width="124" stroke-linecap="round" mask="url(#cut)"/>
+  <line x1="292" y1="732" x2="716" y2="308" stroke="url(#gg)" stroke-width="124" stroke-linecap="round"/>
+  <path d="M640 214 H810 V384 Z" fill="url(#gg)" stroke="url(#gg)" stroke-width="40" stroke-linejoin="round"/>
+</g></svg>

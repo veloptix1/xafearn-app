@@ -88,7 +88,7 @@ export default function FlyersPage() {
   const selectedItem = items.find(i => i.id === selectedId)
 
   return (
-    <main className="min-h-screen bg-slate-50 pb-24">
+    <main className="min-h-dvh bg-slate-50 pb-24">
       <header className="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-50 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link href="/dashboard" className="text-slate-500 hover:text-slate-900 bg-slate-100 p-2 rounded-full">

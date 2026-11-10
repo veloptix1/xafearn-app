@@ -57,10 +57,10 @@ export default function MonLienPage() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><div className="w-8 h-8 border-4 border-sky-200 border-t-sky-500 rounded-full animate-spin"></div></div>
+  if (loading) return <div className="min-h-dvh flex items-center justify-center bg-slate-50"><div className="w-8 h-8 border-4 border-sky-200 border-t-sky-500 rounded-full animate-spin"></div></div>
 
   return (
-    <main className="min-h-screen bg-slate-50 pb-24">
+    <main className="min-h-dvh bg-slate-50 pb-24">
       <header className="bg-white border-b border-slate-200 px-4 py-4 flex items-center gap-3">
         <Link href="/dashboard" className="text-slate-500 bg-slate-100 p-2 rounded-full active:bg-slate-200">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>

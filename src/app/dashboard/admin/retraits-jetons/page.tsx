@@ -86,10 +86,10 @@ export default function AdminCoinWithdrawalsPage() {
     setProcessingId(null)
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center">Chargement...</div>
+  if (loading) return <div className="min-h-dvh flex items-center justify-center">Chargement...</div>
 
   return (
-    <main className="min-h-screen bg-slate-50 pb-24">
+    <main className="min-h-dvh bg-slate-50 pb-24">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       
       <header className="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-50 flex items-center gap-4">

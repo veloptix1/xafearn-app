@@ -94,7 +94,7 @@ export default function SignupPage() {
 
   if (success) {
     return (
-      <main className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
+      <main className="min-h-dvh flex items-center justify-center p-6 bg-slate-50">
         <div className="text-center bg-white border border-slate-200 p-8 rounded-3xl max-w-md shadow-sm">
           <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
@@ -110,7 +110,7 @@ export default function SignupPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
+    <main className="min-h-dvh flex items-center justify-center p-4 bg-slate-50">
       <div className="w-full max-w-md">
         <Link href="/" className="block text-center mb-6">
           <img src="/logo.png" alt="XAFEARN" className="h-10 w-auto object-contain mx-auto" />

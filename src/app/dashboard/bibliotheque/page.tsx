@@ -33,7 +33,7 @@ export default function MyLibraryPage() {
   if (loading) return <div className="text-center py-20 text-slate-500">Chargement de ta bibliothèque...</div>
 
   return (
-    <main className="min-h-screen bg-slate-50 pb-24">
+    <main className="min-h-dvh bg-slate-50 pb-24">
       <header className="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-50 flex items-center gap-4 shadow-sm">
         <Link href="/dashboard" className="text-slate-500 hover:text-slate-900 bg-slate-100 p-2 rounded-full transition">
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>

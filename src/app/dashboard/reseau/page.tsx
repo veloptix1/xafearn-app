@@ -324,14 +324,14 @@ export default function ReseauPage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-purple-50 flex flex-col items-center justify-center">
+    <div className="min-h-dvh bg-gradient-to-br from-sky-50 via-white to-purple-50 flex flex-col items-center justify-center">
       <div className="w-10 h-10 border-4 border-sky-200 border-t-sky-500 rounded-full animate-spin mb-4"></div>
       <p className="text-slate-500 font-bold text-sm">Chargement...</p>
     </div>
   )
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-sky-50 via-white to-purple-50 relative">
+    <main className="min-h-dvh bg-gradient-to-br from-sky-50 via-white to-purple-50 relative">
       
       {/* TOAST */}
       {toast && (

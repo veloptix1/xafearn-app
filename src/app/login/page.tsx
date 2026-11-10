@@ -46,7 +46,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
+    <main className="min-h-dvh flex items-center justify-center p-4 bg-slate-50">
       <div className="w-full max-w-md">
         <Link href="/" className="block text-center mb-6">
           <img src="/logo.png" alt="XAFEARN" className="h-10 w-auto object-contain mx-auto" />

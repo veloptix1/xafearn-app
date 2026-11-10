@@ -58,7 +58,7 @@ export default function OnboardingPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
+    <main className="min-h-dvh bg-slate-50 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-lg bg-white border border-slate-200 p-6 rounded-3xl shadow-sm">
         <div className="text-center mb-6">
           <img src="/logo.png" alt="XAFEARN" className="h-10 w-auto object-contain mx-auto mb-3" />

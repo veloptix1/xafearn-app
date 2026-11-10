@@ -131,14 +131,14 @@ export default function RetraitPage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+    <div className="min-h-dvh bg-slate-50 flex flex-col items-center justify-center">
       <div className="w-8 h-8 border-4 border-sky-200 border-t-sky-500 rounded-full animate-spin mb-4"></div>
       <p className="text-slate-500 font-medium text-sm">Chargement...</p>
     </div>
   )
 
   return (
-    <main className="min-h-screen bg-slate-50 pb-24">
+    <main className="min-h-dvh bg-slate-50 pb-24">
       {toast && (
         <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[200] px-4 py-3 rounded-xl shadow-xl font-bold text-sm text-white ${
           toast.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'

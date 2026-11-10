@@ -22,13 +22,13 @@ export default function LandingPage() {
   }, [])
 
   if (checking) return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+    <div className="min-h-dvh bg-slate-50 flex items-center justify-center">
       <div className="w-8 h-8 border-4 border-sky-200 border-t-sky-500 rounded-full animate-spin"></div>
     </div>
   )
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-sky-50 overflow-hidden">
+    <main className="min-h-dvh bg-gradient-to-br from-emerald-50 via-white to-sky-50 overflow-hidden">
       
       {/* HEADER */}
       <header className="px-5 py-4 flex justify-between items-center">

@@ -12,6 +12,12 @@ export default function TreasuresPage() {
   const supabase = createClient()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
+  // Heure courante, rafraîchie chaque minute pour que les comptes à rebours restent justes
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30000)
+    return () => clearInterval(t)
+  }, [])
   const [treasures, setTreasures] = useState<any[]>([])
   const [links, setLinks] = useState<Record<string, any[]>>({})
   const [profile, setProfile] = useState<any>(null)
@@ -79,14 +85,14 @@ export default function TreasuresPage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+    <div className="min-h-dvh bg-slate-50 flex flex-col items-center justify-center">
       <div className="w-8 h-8 border-4 border-amber-200 border-t-amber-500 rounded-full animate-spin mb-4"></div>
       <p className="text-slate-500 font-medium text-sm">Chargement...</p>
     </div>
   )
 
   return (
-    <main className="min-h-screen bg-slate-50 pb-24">
+    <main className="min-h-dvh bg-slate-50 pb-24">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
       <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 px-5 py-4 sticky top-0 z-50 flex items-center gap-3">
@@ -117,7 +123,7 @@ export default function TreasuresPage() {
         ) : (
           treasures.map(t => {
             const treasureLinks = links[t.id] || []
-            const timeLeft = new Date(t.expires_at).getTime() - Date.now()
+            const timeLeft = new Date(t.expires_at).getTime() - now
             const hoursLeft = Math.max(0, Math.floor(timeLeft / 3600000))
             const minsLeft = Math.max(0, Math.floor((timeLeft % 3600000) / 60000))
 

@@ -68,7 +68,7 @@ export default function ProfilePage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+    <div className="min-h-dvh bg-slate-50 flex flex-col items-center justify-center">
       <div className="w-8 h-8 border-4 border-sky-200 border-t-sky-500 rounded-full animate-spin mb-4"></div>
       <p className="text-slate-500 font-medium text-sm">Chargement...</p>
     </div>
@@ -78,7 +78,7 @@ export default function ProfilePage() {
   const levelName = profile?.level === 3 ? 'Expert' : profile?.level === 2 ? 'Confirmé' : 'Débutant'
 
   return (
-    <main className="min-h-screen bg-slate-50 pb-24">
+    <main className="min-h-dvh bg-slate-50 pb-24">
       
       {/* HEADER MOBILE */}
       <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 px-5 py-4 sticky top-0 z-50 flex items-center gap-3">

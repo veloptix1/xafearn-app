@@ -20,7 +20,7 @@ export default function BottomNav() {
   ]
 
   // Sections entières où la nav est cachée (ex: messagerie plein écran)
-  const hiddenPrefixes = ['/dashboard/messages']
+  const hiddenPrefixes = ['/dashboard/messages', '/series']
 
   // Si on est sur une page qui cache la nav, on retourne null
   const path = pathname.length > 1 ? pathname.replace(/\/$/, '') : pathname
@@ -46,7 +46,13 @@ export default function BottomNav() {
   ]
 
   return (
-    <nav className="fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 px-2 py-3 flex justify-around items-center z-50 md:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+    <>
+    {/* Espace réservé : évite que le contenu passe sous la barre (seulement quand elle est visible) */}
+    <div aria-hidden className="md:hidden" style={{ height: 'calc(4.75rem + env(safe-area-inset-bottom, 0px))' }} />
+    <nav
+      className="fixed bottom-0 inset-x-0 bg-white border-t border-slate-200 px-2 pt-3 flex justify-around items-start z-50 md:hidden shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]"
+      style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom, 0px))' }}
+    >
       {navItems.map((item) => {
         const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
         return (
@@ -63,5 +69,6 @@ export default function BottomNav() {
         )
       })}
     </nav>
+    </>
   )
 }

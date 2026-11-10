@@ -23,7 +23,7 @@ export default function OfflinePage() {
   }, [])
 
   return (
-    <main className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6">
+    <main className="min-h-dvh bg-slate-50 flex flex-col items-center justify-center p-6">
       <div className="max-w-md text-center">
         
         {/* Icône */}

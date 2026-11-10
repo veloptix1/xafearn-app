@@ -36,7 +36,7 @@ export default function AnalyticsPage() {
   }, [router, supabase])
 
   if (loading) return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+    <div className="min-h-dvh bg-slate-50 flex flex-col items-center justify-center">
       <div className="w-8 h-8 border-4 border-sky-200 border-t-sky-500 rounded-full animate-spin mb-4"></div>
       <p className="text-slate-500 font-medium text-sm">Chargement...</p>
     </div>
@@ -56,7 +56,7 @@ export default function AnalyticsPage() {
   const topCities = Object.entries(viewsByCity).sort(([, a], [, b]) => b - a).slice(0, 4)
 
   return (
-    <main className="min-h-screen bg-slate-50 pb-24">
+    <main className="min-h-dvh bg-slate-50 pb-24">
       <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 px-5 py-4 sticky top-0 z-50 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/dashboard" className="text-slate-500 hover:text-slate-900 bg-slate-100 p-2 rounded-full active:bg-slate-200 transition">

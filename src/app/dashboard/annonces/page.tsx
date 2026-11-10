@@ -35,7 +35,7 @@ export default function AnnoncesPage() {
   }, [])
 
   if (loading) return (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+    <div className="min-h-dvh bg-slate-50 flex flex-col items-center justify-center">
       <div className="w-10 h-10 border-4 border-sky-200 border-t-sky-500 rounded-full animate-spin mb-4"></div>
       <p className="text-slate-500 font-medium text-sm">Chargement...</p>
     </div>
@@ -51,7 +51,7 @@ export default function AnnoncesPage() {
   const paidCampaigns = campaigns?.filter(c => !c.is_welcome_campaign) || []
 
   return (
-    <main className="min-h-screen bg-slate-50 pb-28">
+    <main className="min-h-dvh bg-slate-50 pb-28">
       
       {/* HEADER MOBILE */}
       <header className="bg-white/90 backdrop-blur-md border-b border-slate-200 px-5 py-4 sticky top-0 z-50 flex items-center justify-between">

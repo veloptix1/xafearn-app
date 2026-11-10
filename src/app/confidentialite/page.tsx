@@ -2,7 +2,7 @@ import Link from 'next/link'
 
 export default function ConfidentialitePage() {
   return (
-    <main className="min-h-screen bg-slate-50 pb-24">
+    <main className="min-h-dvh bg-slate-50 pb-24">
       <header className="bg-white border-b border-slate-200 px-6 py-4 sticky top-0 z-50 flex justify-between items-center">
         <Link href="/" className="flex items-center gap-2">
           <img src="/logo.png" alt="XAFEARN" className="h-7 w-auto object-contain" />
