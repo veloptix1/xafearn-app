@@ -38,7 +38,7 @@ export default function Toast({ message, type = 'info', duration = 3000, onClose
   }
 
   return (
-    <div className={`fixed top-4 left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-2xl text-sm font-bold z-[200] flex items-center gap-2 animate-in slide-in-from-top-2 duration-300 ${colors[type]}`}>
+    <div className={`fixed top-[max(env(safe-area-inset-top,0px),1rem)] left-1/2 -translate-x-1/2 px-6 py-3 rounded-full shadow-2xl text-sm font-bold z-[200] flex items-center gap-2 animate-in slide-in-from-top-2 duration-300 ${colors[type]}`}>
       {icons[type]}
       {message}
     </div>

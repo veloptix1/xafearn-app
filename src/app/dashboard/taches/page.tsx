@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import PageHeader from '@/components/PageHeader'
 
 export default function TasksPage() {
   const supabase = createClient()
@@ -27,7 +28,7 @@ export default function TasksPage() {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return router.push('/login')
 
-        const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+        const { data: prof } = await supabase.from('profiles').select('id, is_premium, is_test_mode, coins_balance').eq('id', user.id).single()
         if (!prof) return
         
         setProfile(prof)
@@ -83,23 +84,19 @@ export default function TasksPage() {
     if (!profile || !canClaimBonus || claimingBonus) return
     setClaimingBonus(true)
     try {
-      const todayStr = new Date().toISOString().split('T')[0]
-      
-      const { error: claimErr } = await supabase.from('daily_bonus_claims').insert({ 
-        user_id: profile.id, 
-        claim_date: todayStr 
-      })
-      if (claimErr) throw claimErr
-
-      const newCoins = (profile.coins_balance || 0) + 50
-      const { error: updateErr } = await supabase.from('profiles').update({ coins_balance: newCoins }).eq('id', profile.id)
-      if (updateErr) throw updateErr
-
-      setProfile({ ...profile, coins_balance: newCoins })
+      // Le serveur vérifie le statut Premium, l'unicité du jour et crédite les jetons
+      const { data, error } = await supabase.rpc('claim_daily_bonus')
+      if (error) throw error
+      if (!data?.success) {
+        if (/déjà/i.test(data?.error || '')) setCanClaimBonus(false)
+        alert(data?.error || 'Bonus indisponible pour le moment.')
+        return
+      }
+      setProfile({ ...profile, coins_balance: data.new_balance })
       setCanClaimBonus(false)
-      alert('+50 jetons ajoutés !')
-    } catch (err: any) {
-      alert('Bonus déjà réclamé aujourd\'hui.')
+      alert(`+${data.coins} jetons ajoutés !`)
+    } catch {
+      alert('Impossible de réclamer le bonus. Réessaie.')
     } finally {
       setClaimingBonus(false)
     }
@@ -124,11 +121,14 @@ export default function TasksPage() {
   const submitProof = async () => {
     if (!screenshot) return alert('Veuillez uploader une capture d\'écran.')
     if (!profile || !activeTask) return
-    
+    if (!screenshot.type.startsWith('image/')) return alert('Le fichier doit être une image.')
+    if (screenshot.size > 8 * 1024 * 1024) return alert('Image trop lourde (8 Mo maximum).')
+    const ext = (screenshot.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg').replace(/[^a-z0-9]/gi, '')
+
     setUploading(true)
     try {
-      const fileName = `task-proof-${profile.id}-${activeTask.id}-${Date.now()}.jpg`
-      const { error: uploadError } = await supabase.storage.from('proof-videos').upload(fileName, screenshot)
+      const fileName = `task-proof-${profile.id}-${activeTask.id}-${Date.now()}.${ext}`
+      const { error: uploadError } = await supabase.storage.from('proof-videos').upload(fileName, screenshot, { contentType: screenshot.type })
       if (uploadError) throw uploadError
       
       const { data: { publicUrl } } = supabase.storage.from('proof-videos').getPublicUrl(fileName)
@@ -162,13 +162,8 @@ export default function TasksPage() {
   )
 
   return (
-    <main className="min-h-dvh bg-slate-50 pb-24">
-      <header className="bg-white border-b border-slate-200 px-4 py-4 flex items-center gap-3">
-        <Link href="/dashboard" className="text-slate-500 bg-slate-100 p-2 rounded-full active:bg-slate-200">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-        </Link>
-        <h1 className="font-bold text-slate-900 flex-1">Tâches rémunérées</h1>
-      </header>
+    <main className="min-h-dvh bg-slate-50 pb-6">
+      <PageHeader title="Tâches rémunérées" backHref="/dashboard" />
 
       <div className="p-4 max-w-md mx-auto space-y-4">
         

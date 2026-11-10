@@ -5,13 +5,13 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import Toast from '@/components/Toast'
-
-const VERCEL_URL = 'https://getagriculture.store'
+import PageHeader from '@/components/PageHeader'
 
 export default function TreasuresPage() {
   const supabase = createClient()
   const router = useRouter()
   const [loading, setLoading] = useState(true)
+  const [reloadKey, setReloadKey] = useState(0)
   // Heure courante, rafraîchie chaque minute pour que les comptes à rebours restent justes
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
@@ -37,15 +37,15 @@ export default function TreasuresPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return router.push('/login')
 
-      const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+      const { data: prof } = await supabase.from('profiles').select('id, balance').eq('id', user.id).single()
       setProfile(prof)
 
-      const { data: t } = await supabase.from('treasures').select('*').eq('status', 'active').order('created_at', { ascending: false })
+      const { data: t } = await supabase.from('treasures').select('id, sponsor_name, tier, prize_pool, expires_at, status, created_at').eq('status', 'active').gt('expires_at', new Date().toISOString()).order('created_at', { ascending: false })
       setTreasures(t || [])
 
       if (t && t.length > 0) {
         const ids = t.map(x => x.id)
-        const { data: l } = await supabase.from('treasure_links').select('*').in('treasure_id', ids)
+        const { data: l } = await supabase.from('treasure_links').select('treasure_id, url, platform, hint').in('treasure_id', ids)
         const grouped: Record<string, any[]> = {}
         l?.forEach(link => {
           if (!grouped[link.treasure_id]) grouped[link.treasure_id] = []
@@ -56,7 +56,7 @@ export default function TreasuresPage() {
       setLoading(false)
     }
     load()
-  }, [router, supabase])
+  }, [router, supabase, reloadKey])
 
   const handleClaim = async () => {
     if (!code.trim()) return showToast('Veuillez entrer le code secret.', 'warning')
@@ -64,21 +64,21 @@ export default function TreasuresPage() {
     setWinResult(null)
 
     try {
-      const res = await fetch(`${VERCEL_URL}/api/treasures/claim`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ treasureId: activeTreasure.id, code: code.trim().toUpperCase(), user_id: profile.id })
+      // Vérification du code et distribution du gain faites côté serveur (atomique, 3 essais max)
+      const { data, error } = await supabase.rpc('claim_treasure', {
+        p_treasure_id: activeTreasure.id,
+        p_code: code.trim().toUpperCase(),
       })
-      const data = await res.json()
 
-      if (!res.ok) {
-        showToast(data.error || 'Code incorrect.', 'error')
+      if (error) {
+        showToast('Erreur réseau. Réessaie.', 'error')
+      } else if (!data?.success) {
+        showToast(data?.error || 'Code incorrect.', 'error')
       } else {
         setWinResult(data)
         showToast('Félicitations !', 'success')
-        setTimeout(() => { setActiveTreasure(null); window.location.reload() }, 5000)
       }
-    } catch (err) {
+    } catch {
       showToast('Erreur réseau. Réessaie.', 'error')
     }
     setIsSubmitting(false)
@@ -95,12 +95,7 @@ export default function TreasuresPage() {
     <main className="min-h-dvh bg-slate-50 pb-24">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
 
-      <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 px-5 py-4 sticky top-0 z-50 flex items-center gap-3">
-        <Link href="/dashboard" className="text-slate-500 hover:text-slate-900 bg-slate-100 p-2 rounded-full active:bg-slate-200 transition">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-        </Link>
-        <h1 className="text-lg font-black text-slate-900">Trésors</h1>
-      </header>
+      <PageHeader title="Trésors" backHref="/dashboard" />
 
       <div className="p-4 max-w-lg mx-auto space-y-4">
         
@@ -174,7 +169,7 @@ export default function TreasuresPage() {
       {/* MODAL */}
       {activeTreasure && (
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md shadow-2xl p-6 max-h-[90vh] overflow-y-auto animate-in slide-in-from-bottom duration-300">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md shadow-2xl p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] max-h-[90dvh] overflow-y-auto animate-in slide-in-from-bottom duration-300">
             
             {!winResult ? (
               <>
@@ -206,7 +201,7 @@ export default function TreasuresPage() {
 
                 <input 
                   type="text" 
-                  placeholder="CODE SECRET" 
+                  placeholder="CODE SECRET" autoCapitalize="characters" autoCorrect="off" autoComplete="off" 
                   value={code} 
                   onChange={e => setCode(e.target.value.toUpperCase())} 
                   className="w-full p-4 bg-slate-50 border-2 border-slate-200 rounded-xl text-center font-black text-lg tracking-widest focus:border-amber-500 outline-none mb-4" 
@@ -230,7 +225,7 @@ export default function TreasuresPage() {
                   <p className="text-[10px] text-emerald-700 font-bold uppercase mb-1">Gains</p>
                   <p className="text-2xl font-black text-emerald-600">{winResult.prize?.toFixed(2)} F</p>
                 </div>
-                <button onClick={() => { setActiveTreasure(null); window.location.reload(); }} className="w-full py-3.5 bg-emerald-500 text-white font-bold rounded-xl active:scale-95 transition">Retour</button>
+                <button onClick={() => { setActiveTreasure(null); setWinResult(null); setReloadKey(k => k + 1) }} className="w-full py-3.5 bg-emerald-500 text-white font-bold rounded-xl active:scale-95 transition">Retour</button>
               </div>
             )}
           </div>

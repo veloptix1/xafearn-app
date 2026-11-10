@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { unregisterPush } from '@/lib/push'
 
 export default function ProfilClient({ profile: initialProfile }: { profile: any }) {
   const router = useRouter()
@@ -11,6 +12,7 @@ export default function ProfilClient({ profile: initialProfile }: { profile: any
   const [isAnnonceurMode, setIsAnnonceurMode] = useState(profile?.role === 'annonceur')
 
   const handleSignOut = async () => {
+    await unregisterPush(supabase)
     await supabase.auth.signOut()
     router.replace('/login')
   }

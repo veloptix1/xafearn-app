@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { unregisterPush } from '@/lib/push'
 
 export default function ProfilePage() {
   const supabase = createClient()
@@ -63,6 +64,7 @@ export default function ProfilePage() {
   ]
 
   const handleLogout = async () => {
+    await unregisterPush(supabase)
     await supabase.auth.signOut()
     router.push('/login')
   }

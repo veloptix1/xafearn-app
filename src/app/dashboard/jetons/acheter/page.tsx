@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import PageHeader from '@/components/PageHeader'
+import { SITE_URL } from '@/lib/config'
 
 const COINS_PER_1000_FCFA = 800
 const MIN_FCFA = 100
@@ -22,14 +24,14 @@ export default function BuyCoinsPage() {
     async function load() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return router.replace('/login')
-      const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
+      const { data } = await supabase.from('profiles').select('id, balance, coins_balance').eq('id', session.user.id).single()
       setProfile(data)
       setLoading(false)
     }
     load()
   }, [supabase, router])
 
-  const finalAmount = customAmount ? parseInt(customAmount) || 0 : selectedFCFA
+  const finalAmount = Math.min(customAmount ? parseInt(customAmount) || 0 : selectedFCFA, 10_000_000)
   const coinsToReceive = Math.floor((finalAmount / 1000) * COINS_PER_1000_FCFA)
   const isValidAmount = finalAmount >= MIN_FCFA
 
@@ -39,31 +41,31 @@ export default function BuyCoinsPage() {
     
     setIsProcessing(true)
     try {
-      await supabase.from('profiles').update({ balance: profile.balance - finalAmount }).eq('id', profile.id)
-      await supabase.from('profiles').update({ coins_balance: (profile.coins_balance || 0) + coinsToReceive }).eq('id', profile.id)
-      alert('Achat réussi !')
+      // Conversion faite côté serveur (800 jetons pour 1000 FCFA) : le téléphone ne décide plus du montant
+      const { data, error } = await supabase.rpc('buy_coins_with_balance', { p_fcfa: finalAmount })
+      if (error || !data?.success) {
+        alert(data?.error || "Erreur lors de l'achat.")
+        return
+      }
+      alert(`Achat réussi ! +${data.coins} jetons`)
       router.push('/dashboard')
-    } catch (err) {
-      alert('Erreur lors de l\'achat.')
+    } catch {
+      alert("Erreur lors de l'achat.")
+    } finally {
+      setIsProcessing(false)
     }
-    setIsProcessing(false)
   }
 
   const handleBuyWithLeekPay = async () => {
     if (!isValidAmount) return alert(`Le minimum est de ${MIN_FCFA} FCFA.`)
-    window.location.href = 'https://getagriculture.store/dashboard/jetons/acheter'
+    window.location.href = `${SITE_URL}/dashboard/jetons/acheter`
   }
 
   if (loading) return <div className="min-h-dvh flex items-center justify-center">Chargement...</div>
 
   return (
-    <main className="min-h-dvh bg-slate-50 pb-24">
-      <header className="bg-white border-b border-slate-200 px-4 py-4 flex items-center gap-3">
-        <Link href="/dashboard" className="text-slate-500 bg-slate-100 p-2 rounded-full active:bg-slate-200">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-        </Link>
-        <h1 className="font-bold text-slate-900 flex-1">Acheter des Jetons</h1>
-      </header>
+    <main className="min-h-dvh bg-slate-50 pb-6">
+      <PageHeader title="Acheter des jetons" backHref="/dashboard" />
 
       <div className="p-4 max-w-md mx-auto mt-2">
         
@@ -98,7 +100,7 @@ export default function BuyCoinsPage() {
             <label className="block text-xs font-bold text-slate-600 uppercase mb-2">Montant personnalisé (min. {MIN_FCFA} F)</label>
             <div className="relative">
               <input 
-                type="number" 
+                type="number" inputMode="numeric" 
                 value={customAmount} 
                 onChange={e => setCustomAmount(e.target.value)} 
                 placeholder={`${MIN_FCFA}`} 

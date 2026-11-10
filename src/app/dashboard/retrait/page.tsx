@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import PageHeader from '@/components/PageHeader'
 
 const PAYS_OPERATEURS: Record<string, { nom: string, operateurs: string[] }> = {
   CM: { nom: 'Cameroun', operateurs: ['Orange Money', 'MTN Mobile Money'] },
@@ -50,7 +51,7 @@ export default function RetraitPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return router.push('/login')
 
-      const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+      const { data } = await supabase.from('profiles').select('id, balance, level, full_name, phone, country').eq('id', user.id).single()
       setProfile(data)
       setFullName(data?.full_name || '')
       setPhone(data?.phone || '')
@@ -99,33 +100,22 @@ export default function RetraitPage() {
 
     setSubmitting(true)
 
-    const { error } = await supabase.from('withdrawals').insert({
-      user_id: profile.id,
-      amount: numericAmount,
-      fee: feeAmount,
-      net_amount: netAmount,
-      country,
-      operator,
-      phone_number: phone.replace(/\s/g, ''),
-      full_name: fullName.trim(),
-      status: 'pending'
+    // Opération atomique côté serveur : contrôle du solde, frais, débit et création de la demande
+    const { data, error } = await supabase.rpc('request_withdrawal', {
+      p_amount: numericAmount,
+      p_country: country,
+      p_operator: operator,
+      p_phone: phone.replace(/\s/g, ''),
+      p_full_name: fullName.trim(),
     })
 
-    if (error) {
-      showToast('Erreur: ' + error.message, 'error')
+    if (error || !data?.success) {
+      showToast(data?.error || 'Erreur : ' + (error?.message ?? 'demande refusée'), 'error')
       setSubmitting(false)
       return
     }
 
-    await supabase.from('profiles').update({ balance: balance - numericAmount }).eq('id', profile.id)
-
-    await supabase.from('notifications').insert({
-      user_id: profile.id,
-      title: 'Demande de retrait',
-      message: `Ta demande de retrait de ${numericAmount.toLocaleString('fr-FR')} FCFA a été envoyée. Tu recevras ${netAmount.toLocaleString('fr-FR')} FCFA sous 72h.`,
-      link: '/dashboard/historique'
-    })
-
+    setProfile({ ...profile, balance: data.new_balance })
     showToast('Demande de retrait envoyée !', 'success')
     setTimeout(() => router.push('/dashboard'), 2000)
   }
@@ -138,21 +128,16 @@ export default function RetraitPage() {
   )
 
   return (
-    <main className="min-h-dvh bg-slate-50 pb-24">
+    <main className="min-h-dvh bg-slate-50 pb-6">
       {toast && (
-        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-[200] px-4 py-3 rounded-xl shadow-xl font-bold text-sm text-white ${
+        <div className={`fixed top-[max(env(safe-area-inset-top,0px),1rem)] left-1/2 -translate-x-1/2 z-[200] px-4 py-3 rounded-xl shadow-xl font-bold text-sm text-white ${
           toast.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'
         }`}>
           {toast.msg}
         </div>
       )}
 
-      <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 px-5 py-4 sticky top-0 z-50 flex items-center gap-3">
-        <Link href="/dashboard" className="text-slate-500 hover:text-slate-900 bg-slate-100 p-2 rounded-full active:bg-slate-200 transition">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-        </Link>
-        <h1 className="text-lg font-black text-slate-900">Retirer mes gains</h1>
-      </header>
+      <PageHeader title="Retirer mes gains" backHref="/dashboard" />
 
       <div className="p-4 max-w-lg mx-auto mt-2">
         
@@ -204,7 +189,7 @@ export default function RetraitPage() {
 
           <div>
             <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Montant à retirer (FCFA)</label>
-            <input type="number" required min={minAmount} max={balance} placeholder={`Min. ${minAmount}`} value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 font-black text-lg" />
+            <input type="number" inputMode="numeric" required min={minAmount} max={balance} placeholder={`Min. ${minAmount}`} value={amount} onChange={e => setAmount(e.target.value)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-sky-500 outline-none text-slate-900 font-black text-lg" />
           </div>
 
           {numericAmount > 0 && (

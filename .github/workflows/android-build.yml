@@ -41,6 +41,15 @@ jobs:
       - name: Accept Android licenses
         run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
+      - name: Firebase (notifications push)
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            echo "$GOOGLE_SERVICES_JSON" | base64 -d > android/app/google-services.json
+          fi
+          if [ -f android/app/google-services.json ]; then echo "google-services.json présent ✔"; else echo "⚠️ google-services.json absent : l'app compile mais sans notifications push"; fi
+
       - name: Sync Capacitor
         run: npx cap sync android
 
