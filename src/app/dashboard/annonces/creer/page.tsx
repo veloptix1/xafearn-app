@@ -1,9 +1,12 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import PaymentMethodPicker from '@/components/PaymentMethodPicker'
+import { useOnReturn } from '@/lib/useOnReturn'
+import { DEFAULT_PAYMENT_SETTINGS, loadPaymentSettings, openExternal, rechargeFor, startLeekPay, type PaymentMethod, type PaymentSettings } from '@/lib/payments'
 
 const paysAfrique = [
   { code: '', nom: 'Tous les pays (Mondial)' },
@@ -14,7 +17,6 @@ const paysAfrique = [
 ]
 
 // 🚀 L'URL DE TON SITE VERCEL (pour appeler les API routes)
-const VERCEL_URL = 'https://getagriculture.store'
 
 export default function CreerAnnoncePage() {
   const router = useRouter()
@@ -39,11 +41,14 @@ export default function CreerAnnoncePage() {
   const [isFlash, setIsFlash] = useState(false)
 
   // Paiement
-  const [paymentMethod, setPaymentMethod] = useState<'balance' | 'leekpay'>('balance')
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('balance')
+  const [settings, setSettings] = useState<PaymentSettings>(DEFAULT_PAYMENT_SETTINGS)
+  const [paying, setPaying] = useState(false)
+  const [info, setInfo] = useState<string | null>(null)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
 
   const duration = 7
-  const budget = (parseInt(views) || 0) * 1.92
+  const budget = Math.round((parseInt(views) || 0) * 1.92 * 100) / 100 // même calcul que le serveur
 
   useEffect(() => {
     async function load() {
@@ -54,6 +59,7 @@ export default function CreerAnnoncePage() {
       setProfile(data)
       setWhatsapp(data?.whatsapp || '')
       setCountry(data?.country || 'CM')
+      setSettings(await loadPaymentSettings(supabase))
       setLoading(false)
     }
     load()
@@ -84,49 +90,47 @@ export default function CreerAnnoncePage() {
     setShowPaymentModal(true)
   }
 
-  const processPayment = async () => {
-    setLoading(true)
-    setError(null)
+  const refreshProfile = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+    if (data) setProfile(data)
+  }, [supabase])
 
+  // Au retour du navigateur de paiement, le solde est rechargé automatiquement
+  useOnReturn(refreshProfile)
+
+  const processPayment = async () => {
+    setError(null)
+    setInfo(null)
+    setPaying(true)
+    const balance = profile?.balance || 0
     try {
       if (paymentMethod === 'balance') {
-        // 🚀 APPEL À L'API DE TON SITE VERCEL
-        const res = await fetch(`${VERCEL_URL}/api/campaigns/create`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            title, description, image_url: imageUrl, price: parseFloat(price) || 0,
-            sector, country, city, neighborhood, whatsapp,
-            views: parseInt(views), budget, is_flash: isFlash,
-            expires_at: isFlash ? new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString() : null,
-            payment_method: 'balance',
-            user_id: profile.id // On ajoute l'ID pour que l'API sache qui paie
-          })
+        if (balance < budget) throw new Error('Solde insuffisant. Recharge-le avec LeekPay ou SoleasPay.')
+        // Prix et solde sont recalculés et vérifiés par la base de données
+        const { data, error: rpcError } = await supabase.rpc('create_campaign', {
+          p_title: title.trim(), p_description: description.trim(), p_image_url: imageUrl,
+          p_price: parseFloat(price) || 0, p_sector: sector, p_country: country, p_city: city,
+          p_neighborhood: neighborhood, p_whatsapp: whatsapp.replace(/\s/g, ''),
+          p_views: parseInt(views), p_is_flash: isFlash,
         })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Erreur de paiement')
+        if (rpcError || !data?.success) throw new Error(data?.error || 'Création de la campagne impossible.')
         router.push('/dashboard/annonces')
-      } else {
-        // 🚀 APPEL À L'API LEEKPAY DE TON SITE VERCEL
-        const res = await fetch(`${VERCEL_URL}/api/leekpay/create`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount: Math.round(budget),
-            description: `Campagne: ${title}`,
-            campaign_data: { title, description, image_url: imageUrl, price: parseFloat(price) || 0, sector, country, city, neighborhood, whatsapp, views: parseInt(views), budget, is_flash: isFlash, user_id: profile.id }
-          })
-        })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Erreur LeekPay')
-        
-        // Ouvre LeekPay dans le navigateur
-        window.open(data.payment_url, '_system')
-        router.push('/dashboard/annonces')
+        return
       }
-    } catch (err: any) {
-      setError(err.message)
-      setLoading(false)
+      if (paymentMethod === 'leekpay') {
+        const url = await startLeekPay(rechargeFor(budget, balance), `Recharge campagne : ${title}`.slice(0, 100))
+        await openExternal(url)
+        setInfo('Termine le paiement puis reviens ici : ton solde se met à jour tout seul. Choisis ensuite « Mon solde » pour lancer ta campagne.')
+        return
+      }
+      await openExternal(settings.soleasLink)
+      setInfo("Ton paiement SoleasPay sera validé par l'équipe après réception. Tu pourras ensuite lancer ta campagne avec ton solde.")
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Paiement impossible.')
+    } finally {
+      setPaying(false)
     }
   }
 
@@ -267,40 +271,22 @@ export default function CreerAnnoncePage() {
 
       {/* MODAL DE PAIEMENT */}
       {showPaymentModal && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4">
-          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 shadow-2xl animate-in slide-in-from-bottom duration-300">
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-slate-900/60 backdrop-blur-sm sm:p-4" onClick={() => !paying && setShowPaymentModal(false)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-md p-6 shadow-2xl max-h-[90dvh] overflow-y-auto" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }} onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-black text-slate-900 mb-1">Paiement</h2>
-            <p className="text-sm text-slate-500 mb-6">Montant : <strong className="text-slate-900">{budget.toLocaleString('fr-FR')} FCFA</strong></p>
+            <p className="text-sm text-slate-500 mb-5">Montant : <strong className="text-slate-900">{budget.toLocaleString('fr-FR')} FCFA</strong></p>
 
-            <div className="space-y-3 mb-6">
-              <label className={`block p-4 rounded-xl border-2 cursor-pointer transition ${paymentMethod === 'balance' ? 'border-emerald-500 bg-emerald-50' : 'border-slate-200'}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <input type="radio" name="payment" checked={paymentMethod === 'balance'} onChange={() => setPaymentMethod('balance')} className="w-4 h-4 accent-emerald-500" />
-                    <div>
-                      <p className="font-bold text-slate-900 text-sm">Mon solde</p>
-                      <p className="text-xs text-slate-500">Disponible : {profile?.balance?.toLocaleString('fr-FR')} F</p>
-                    </div>
-                  </div>
-                  {(profile?.balance || 0) < budget && <span className="text-[10px] font-bold text-red-500">Insuffisant</span>}
-                </div>
-              </label>
-
-              <label className={`block p-4 rounded-xl border-2 cursor-pointer transition ${paymentMethod === 'leekpay' ? 'border-sky-500 bg-sky-50' : 'border-slate-200'}`}>
-                <div className="flex items-center gap-3">
-                  <input type="radio" name="payment" checked={paymentMethod === 'leekpay'} onChange={() => setPaymentMethod('leekpay')} className="w-4 h-4 accent-sky-500" />
-                  <div>
-                    <p className="font-bold text-slate-900 text-sm">Mobile Money / Carte</p>
-                    <p className="text-xs text-slate-500">Via LeekPay</p>
-                  </div>
-                </div>
-              </label>
+            <div className="mb-5">
+              <PaymentMethodPicker amount={budget} balance={profile?.balance || 0} settings={settings} value={paymentMethod} onChange={setPaymentMethod} />
             </div>
 
+            {info && <div className="bg-sky-50 border border-sky-200 text-sky-800 text-xs rounded-2xl p-4 mb-4 leading-relaxed">{info}</div>}
+            {error && <div role="alert" className="bg-red-50 border border-red-200 text-red-700 text-xs font-semibold rounded-2xl p-4 mb-4">{error}</div>}
+
             <div className="flex gap-2">
-              <button onClick={() => setShowPaymentModal(false)} className="flex-1 py-3.5 bg-slate-100 text-slate-700 font-bold rounded-xl">Annuler</button>
-              <button onClick={processPayment} disabled={loading} className="flex-1 py-3.5 bg-emerald-500 text-white font-bold rounded-xl disabled:opacity-50 shadow-md">
-                {loading ? 'Traitement...' : 'Confirmer'}
+              <button onClick={() => setShowPaymentModal(false)} disabled={paying} className="flex-1 py-3.5 bg-slate-100 text-slate-700 font-bold rounded-xl">Fermer</button>
+              <button onClick={processPayment} disabled={paying || (paymentMethod === 'balance' && (profile?.balance || 0) < budget)} className="flex-1 py-3.5 bg-emerald-500 text-white font-bold rounded-xl disabled:opacity-50 shadow-md">
+                {paying ? 'Traitement…' : paymentMethod === 'balance' ? 'Confirmer' : 'Payer'}
               </button>
             </div>
           </div>

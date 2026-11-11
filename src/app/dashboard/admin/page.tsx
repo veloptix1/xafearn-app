@@ -64,6 +64,19 @@ export default function AdminOverviewPage() {
         ))}
       </div>
 
+      <div className="grid grid-cols-2 gap-4">
+        <Link href="/dashboard/admin/paiements" className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm active:bg-slate-50 transition">
+          <div className="w-10 h-10 bg-indigo-500 rounded-xl mb-3 flex items-center justify-center text-white text-lg shadow-md">💳</div>
+          <p className="font-black text-slate-900 text-sm">Paiements</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">LeekPay, SoleasPay, lien</p>
+        </Link>
+        <Link href="/dashboard/admin/emails" className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm active:bg-slate-50 transition">
+          <div className="w-10 h-10 bg-rose-500 rounded-xl mb-3 flex items-center justify-center text-white text-lg shadow-md">✉️</div>
+          <p className="font-black text-slate-900 text-sm">Emails</p>
+          <p className="text-[11px] text-slate-500 mt-0.5">Envoyer à tes utilisateurs</p>
+        </Link>
+      </div>
+
       <div className="bg-gradient-to-br from-sky-500 to-blue-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl transform translate-x-10 -translate-y-10"></div>
         <h3 className="font-bold text-lg mb-2 relative z-10">Bienvenue Admin 👋</h3>

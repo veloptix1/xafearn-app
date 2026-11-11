@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
-const VERCEL_URL = 'https://getagriculture.store'
 
 const paysAfrique = [
   { code: 'CM', nom: 'Cameroun', indicatif: '+237' },
@@ -77,16 +76,7 @@ export default function SignupPage() {
       return
     }
 
-    if (data.user) {
-      // Envoi de l'email en arrière-plan (API de ton site)
-      try {
-        fetch(`${VERCEL_URL}/api/send-welcome`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, name: fullName })
-        }).catch(console.error)
-      } catch (err) {}
-    }
+    // L'email de bienvenue est envoyé automatiquement par le serveur (webhook), rien à faire ici.
 
     setSuccess(true)
     setLoading(false)
