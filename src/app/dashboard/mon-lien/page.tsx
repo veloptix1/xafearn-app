@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
+import { Share } from '@capacitor/share'
 import { createClient } from '@/lib/supabase/client'
+import PageHeader from '@/components/PageHeader'
+import { SITE_URL } from '@/lib/config'
 
 export default function MonLienPage() {
   const supabase = createClient()
@@ -18,7 +20,7 @@ export default function MonLienPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return router.replace('/login')
 
-      const { data: prof } = await supabase.from('profiles').select('*').eq('id', session.user.id).single()
+      const { data: prof } = await supabase.from('profiles').select('id, referral_code').eq('id', session.user.id).single()
       setProfile(prof)
 
       // Niveau 1
@@ -51,22 +53,38 @@ export default function MonLienPage() {
     load()
   }, [supabase, router])
 
-  const copy = () => {
-    navigator.clipboard.writeText(`https://getagriculture.store/signup?ref=${profile?.referral_code}`)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+  const referralLink = profile?.referral_code ? `${SITE_URL}/signup?ref=${profile.referral_code}` : ''
+
+  const copy = async () => {
+    if (!referralLink) return
+    try {
+      await navigator.clipboard.writeText(referralLink)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      alert('Copie impossible. Utilise le bouton Partager.')
+    }
+  }
+
+  const share = async () => {
+    if (!referralLink) return
+    try {
+      await Share.share({
+        title: 'Rejoins-moi sur XAFEARN',
+        text: 'Gagne de l\'argent en ligne avec XAFEARN. Inscris-toi avec mon lien :',
+        url: referralLink,
+        dialogTitle: 'Partager mon lien',
+      })
+    } catch {
+      // fenêtre de partage fermée : rien à faire
+    }
   }
 
   if (loading) return <div className="min-h-dvh flex items-center justify-center bg-slate-50"><div className="w-8 h-8 border-4 border-sky-200 border-t-sky-500 rounded-full animate-spin"></div></div>
 
   return (
-    <main className="min-h-dvh bg-slate-50 pb-24">
-      <header className="bg-white border-b border-slate-200 px-4 py-4 flex items-center gap-3">
-        <Link href="/dashboard" className="text-slate-500 bg-slate-100 p-2 rounded-full active:bg-slate-200">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-        </Link>
-        <h1 className="font-bold text-slate-900 flex-1">Mon Lien</h1>
-      </header>
+    <main className="min-h-dvh bg-slate-50 pb-6">
+      <PageHeader title="Mon Lien" backHref="/dashboard" />
 
       <div className="p-4 max-w-md mx-auto space-y-4">
         <div className="bg-emerald-500 rounded-3xl p-6 text-white text-center shadow-lg">
@@ -79,9 +97,14 @@ export default function MonLienPage() {
           <div className="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-3 text-center mb-4">
             <span className="text-xl font-black tracking-widest text-sky-600">{profile?.referral_code}</span>
           </div>
-          <button onClick={copy} className="w-full py-3 bg-sky-500 text-white font-bold rounded-xl active:scale-95 transition">
-            {copied ? 'Lien copié !' : 'Copier mon lien'}
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={copy} disabled={!referralLink} className="py-3 bg-sky-500 text-white font-bold rounded-xl active:scale-95 transition disabled:opacity-50">
+              {copied ? 'Lien copié !' : 'Copier mon lien'}
+            </button>
+            <button onClick={share} disabled={!referralLink} className="py-3 bg-emerald-500 text-white font-bold rounded-xl active:scale-95 transition disabled:opacity-50">
+              Partager
+            </button>
+          </div>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">

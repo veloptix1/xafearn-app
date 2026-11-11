@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import PageHeader from '@/components/PageHeader'
 import Toast from '@/components/Toast'
 
-const RATE = 5 // 1 jeton = 5 FCFA
+const RATE = 0.6 // 1 jeton = 0,60 FCFA : même taux que la base de données (fonction request_coin_withdrawal)
 
 export default function WithdrawCoinsPage() {
   const supabase = createClient()
@@ -99,7 +99,7 @@ export default function WithdrawCoinsPage() {
   )
 
   const coins = parseInt(amount) || 0
-  const fcfaReceived = coins > 0 ? coins * RATE : 0
+  const fcfaReceived = coins > 0 ? Math.floor(coins * RATE) : 0
 
   return (
     <main className="min-h-dvh bg-slate-50 pb-6">
@@ -118,7 +118,7 @@ export default function WithdrawCoinsPage() {
           <div className="relative z-10">
             <h2 className="font-black text-xl mb-1">Convertis tes jetons</h2>
             <p className="text-amber-100 text-xs leading-relaxed">Échange tes jetons contre des FCFA envoyés directement sur Wave, Orange Money ou MTN.</p>
-            <p className="mt-3 text-xs font-bold bg-white/20 px-3 py-1.5 rounded-lg inline-block">Taux actuel : 1 jeton = {RATE} FCFA</p>
+            <p className="mt-3 text-xs font-bold bg-white/20 px-3 py-1.5 rounded-lg inline-block">Taux actuel : 1 jeton = {String(RATE).replace(".", ",")} FCFA</p>
           </div>
         </div>
 

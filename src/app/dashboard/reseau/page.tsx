@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { SITE_URL } from '@/lib/config'
 
 const TIPS = [
   "Soutiens tes créateurs préférés avec des jetons !",
@@ -241,8 +242,7 @@ export default function ReseauPage() {
   }
 
   const handleShare = async (post: any) => {
-    const PROD_URL = 'https://getagriculture.store'
-    const shareUrl = `${PROD_URL}/u/${post.user_id}`
+    const shareUrl = `${SITE_URL}/u/${post.user_id}`
     const shareText = post.text_content 
       ? `Découvre cette publication de ${post.profiles?.full_name} sur XAFEARN !` 
       : `Découvre le profil de ${post.profiles?.full_name} sur XAFEARN`

@@ -3,180 +3,187 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import Toast from '@/components/Toast'
 
 export default function AdminPreuvesPage() {
   const supabase = createClient()
   const router = useRouter()
   const [submissions, setSubmissions] = useState<any[]>([])
-  const [campaigns, setCampaigns] = useState<any[]>([])
-  const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  const [profile, setProfile] = useState<any>(null)
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
 
-  useEffect(() => { load() }, [])
-
-  async function load() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return router.push('/login')
-    
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-    if (!profile || (profile.role !== 'admin' && !profile.is_admin)) return router.push('/dashboard')
-
-    const { data: subs } = await supabase.from('ad_submissions').select('*').eq('status', 'pending').order('created_at', { ascending: true })
-    const { data: camps } = await supabase.from('campaigns').select('*')
-    const { data: usrs } = await supabase.from('profiles').select('*')
-    
-    setSubmissions(subs || [])
-    setCampaigns(camps || [])
-    setUsers(usrs || [])
-    setLoading(false)
-  }
-
-  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+  const showToast = (message: string, type: 'success' | 'error') => {
     setToast({ message, type })
     setTimeout(() => setToast(null), 4000)
   }
 
-  const handleValidate = async (sub: any, views: number) => {
-    if (views <= 0) return showToast('Le nombre de vues doit être supérieur à 0.', 'error')
-    
-    const camp = campaigns.find(c => c.id === sub.campaign_id)
-    const profile = users.find(u => u.id === sub.user_id)
-    if (!camp || !profile) return showToast('Données introuvables.', 'error')
+  useEffect(() => {
+    async function load() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return router.push('/login')
+      const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+      if (!prof || (prof.role !== 'admin' && !prof.is_admin)) return router.push('/dashboard')
+      setProfile(prof)
 
+      const { data } = await supabase
+        .from('ad_submissions')
+        .select('*, profiles(full_name, email, level), campaigns(title, price, is_welcome_campaign, custom_gain_per_view)')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+      setSubmissions(data || [])
+      setLoading(false)
+    }
+    load()
+  }, [router, supabase])
+
+  const handleValidate = async (sub: any) => {
+    const views = prompt('Nombre de vues à valider ?', sub.views_count || '1000')
+    if (!views) return
     setActionLoading(sub.id)
+
     try {
-      await supabase.from('ad_submissions').update({ status: 'validated', views_count: views }).eq('id', sub.id)
+      await supabase.from('ad_submissions').update({ views_count: parseInt(views) }).eq('id', sub.id)
+      const { data, error } = await supabase.rpc('admin_validate_submission', {
+        p_submission_id: sub.id,
+        p_admin_id: profile.id
+      })
+      if (error) throw error
+      if (!data.success) throw new Error(data.error)
 
-      if (camp.is_welcome_campaign) {
-        await supabase.from('profiles').update({ is_test_mode: false }).eq('id', sub.user_id)
-        await supabase.from('notifications').insert({
-          user_id: sub.user_id, title: 'Mode test terminé 🚀',
-          message: 'Félicitations ! Toutes les campagnes payantes sont débloquées.',
-          link: '/dashboard/annonces'
-        })
-        showToast(`Test validé pour ${profile.full_name}.`, 'success')
-      } else {
-        const gainPerView = camp.custom_gain_per_view || (profile.level === 1 ? 0.50 : profile.level === 2 ? 1.25 : 1.75)
-        const totalGain = gainPerView * views
-
-        const { data: currentProfile } = await supabase.from('profiles').select('balance').eq('id', sub.user_id).single()
-        await supabase.from('profiles').update({ balance: (currentProfile?.balance || 0) + totalGain }).eq('id', sub.user_id)
-
-        await supabase.from('notifications').insert({
-          user_id: sub.user_id, title: 'Diffusion validée ✅',
-          message: `Tu as gagné ${totalGain.toFixed(2)} FCFA pour "${camp.title}".`,
-          link: '/dashboard'
-        })
-        showToast(`${views} vues validées (+${totalGain.toFixed(0)} FCFA).`, 'success')
-      }
+      showToast(`Validé ! Gain : ${data.gain.toFixed(0)} F`, 'success')
       setSubmissions(prev => prev.filter(s => s.id !== sub.id))
     } catch (err: any) {
-      showToast('Erreur : ' + err.message, 'error')
+      showToast(err.message, 'error')
+    } finally {
+      setActionLoading(null)
     }
-    setActionLoading(null)
   }
 
   const handleReject = async (sub: any) => {
     if (!confirm('Rejeter cette preuve ?')) return
     setActionLoading(sub.id)
     try {
-      await supabase.from('ad_submissions').update({ status: 'rejected' }).eq('id', sub.id)
-      const profile = users.find(u => u.id === sub.user_id)
-      await supabase.from('notifications').insert({
-        user_id: sub.user_id, title: 'Preuve rejetée ❌',
-        message: `Ta preuve a été rejetée. Vérifie qu'elle est bien conforme.`,
-        link: '/dashboard/annonces'
+      const { data, error } = await supabase.rpc('admin_reject_submission', {
+        p_submission_id: sub.id,
+        p_admin_id: profile.id
       })
-      showToast(`Preuve rejetée pour ${profile?.full_name}.`, 'success')
+      if (error) throw error
+      if (!data.success) throw new Error(data.error)
+      showToast('Preuve rejetée.', 'success')
       setSubmissions(prev => prev.filter(s => s.id !== sub.id))
     } catch (err: any) {
-      showToast('Erreur : ' + err.message, 'error')
+      showToast(err.message, 'error')
+    } finally {
+      setActionLoading(null)
     }
-    setActionLoading(null)
   }
 
-  const handleDeleteVideo = async (sub: any) => {
-    if (!confirm('Supprimer définitivement cette preuve ?')) return
+  // 🚀 SUPPRESSION CORRIGÉE
+  const handleDelete = async (sub: any) => {
+    if (!confirm('Supprimer définitivement cette preuve ? La vidéo sera aussi effacée.')) return
     setActionLoading(sub.id)
     try {
+      // 1. Supprimer la vidéo via l'API Storage (autorisé)
       if (sub.proof_video_url) {
         const fileName = sub.proof_video_url.split('/').pop()
-        if (fileName) await supabase.storage.from('proof-videos').remove([fileName])
+        if (fileName) {
+          await supabase.storage.from('proof-videos').remove([fileName])
+        }
       }
-      await supabase.from('ad_submissions').delete().eq('id', sub.id)
+
+      // 2. Supprimer la ligne en SQL
+      const { data, error } = await supabase.rpc('admin_delete_submission', {
+        p_submission_id: sub.id,
+        p_admin_id: profile.id
+      })
+      if (error) throw error
+      if (!data.success) throw new Error(data.error)
+
       showToast('Preuve supprimée.', 'success')
       setSubmissions(prev => prev.filter(s => s.id !== sub.id))
     } catch (err: any) {
-      showToast('Erreur : ' + err.message, 'error')
+      showToast(err.message, 'error')
+    } finally {
+      setActionLoading(null)
     }
-    setActionLoading(null)
   }
 
-  if (loading) return <div className="text-center py-20 text-slate-500">Chargement...</div>
+  if (loading) return <div className="p-20 text-center text-slate-500">Chargement...</div>
 
   return (
-    <div className="space-y-4">
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-      <h2 className="text-xl font-black text-slate-900">📸 Preuves à valider ({submissions.length})</h2>
+    <main className="p-4 md:p-6 max-w-4xl mx-auto">
+      {toast && (
+        <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-xl shadow-lg text-white text-sm font-bold ${toast.type === 'success' ? 'bg-emerald-500' : 'bg-red-500'}`}>
+          {toast.message}
+        </div>
+      )}
+
+      <div className="mb-6">
+        <h1 className="text-2xl font-black text-slate-900">Preuves à valider</h1>
+        <p className="text-sm text-slate-500">{submissions.length} en attente</p>
+      </div>
 
       {submissions.length === 0 ? (
-        <div className="bg-white border border-slate-200 p-8 rounded-2xl text-center text-slate-500">Aucune preuve en attente.</div>
+        <div className="bg-white border border-slate-200 p-8 rounded-2xl text-center text-slate-500">
+          Aucune preuve en attente.
+        </div>
       ) : (
-        submissions.map((s: any) => {
-          const camp = campaigns.find(c => c.id === s.campaign_id)
-          const u = users.find(usr => usr.id === s.user_id)
-          const isTest = camp?.is_welcome_campaign
-          const isLoading = actionLoading === s.id
-
-          return (
-            <div key={s.id} className={`bg-white border-2 rounded-2xl shadow-sm p-4 ${isTest ? 'border-purple-300' : 'border-amber-200'}`}>
+        <div className="space-y-3">
+          {submissions.map(sub => (
+            <div key={sub.id} className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
               <div className="flex justify-between items-start mb-3">
-                <div>
-                  <h3 className="font-bold text-slate-900">{camp?.title}</h3>
-                  <p className="text-xs text-slate-500">{u?.full_name} ({u?.email})</p>
-                  {isTest ? (
-                    <span className="bg-purple-50 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded">TEST</span>
-                  ) : (
-                    <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded">
-                      {u?.level === 1 ? '0,50' : u?.level === 2 ? '1,25' : '1,75'} F/vue
-                    </span>
-                  )}
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-slate-900 truncate">{sub.profiles?.full_name}</p>
+                  <p className="text-xs text-slate-500 truncate">{sub.profiles?.email}</p>
+                  <p className="text-xs text-sky-600 font-bold mt-1 truncate">{sub.campaigns?.title}</p>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    {new Date(sub.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </p>
                 </div>
-                <span className="bg-amber-100 text-amber-700 text-[10px] font-bold px-2 py-1 rounded">EN ATTENTE</span>
+                {sub.campaigns?.is_welcome_campaign && (
+                  <span className="bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-1 rounded shrink-0 ml-2">TEST</span>
+                )}
               </div>
 
-              {s.proof_video_url && (
-                <video src={s.proof_video_url} controls className="w-full max-h-48 rounded-lg bg-black mb-3" />
+              {sub.proof_video_url && (
+                <video src={sub.proof_video_url} controls className="w-full max-h-64 rounded-lg bg-black mb-3" />
               )}
 
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  const formData = new FormData(e.currentTarget)
-                  const views = parseInt(formData.get('views') as string) || 0
-                  handleValidate(s, views)
-                }}
-                className="flex gap-2 items-end mt-2"
-              >
-                <div className="flex-1">
-                  <input type="number" name="views" required defaultValue={1000} disabled={isLoading} className="w-full p-2 border border-slate-300 rounded-lg text-sm disabled:opacity-50" placeholder="Vues" />
+              {!sub.proof_video_url && (
+                <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg mb-3">
+                  <p className="text-xs text-amber-800 font-bold">Aucune vidéo de preuve</p>
                 </div>
-                <button type="submit" disabled={isLoading} className="px-4 py-2 bg-emerald-500 text-white font-bold text-sm rounded-lg hover:bg-emerald-400 disabled:opacity-50">
-                  {isLoading ? '...' : (isTest ? 'Valider test' : 'Valider & Payer')}
-                </button>
-              </form>
+              )}
 
-              <div className="flex gap-2 mt-2">
-                <button onClick={() => handleReject(s)} disabled={isLoading} className="flex-1 py-1.5 bg-red-50 text-red-600 border border-red-200 font-bold text-xs rounded-lg disabled:opacity-50">Rejeter</button>
-                <button onClick={() => handleDeleteVideo(s)} disabled={isLoading} className="flex-1 py-1.5 bg-slate-100 text-slate-600 border border-slate-200 font-bold text-xs rounded-lg disabled:opacity-50">Supprimer</button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleDelete(sub)}
+                  disabled={actionLoading === sub.id}
+                  className="px-3 py-2.5 bg-slate-100 text-slate-600 font-bold text-xs rounded-lg disabled:opacity-50 active:bg-slate-200"
+                  title="Supprimer définitivement"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
+                <button
+                  onClick={() => handleReject(sub)}
+                  disabled={actionLoading === sub.id}
+                  className="flex-1 py-2.5 bg-red-50 text-red-600 border border-red-200 font-bold text-xs rounded-lg disabled:opacity-50"
+                >
+                  Rejeter
+                </button>
+                <button
+                  onClick={() => handleValidate(sub)}
+                  disabled={actionLoading === sub.id}
+                  className="flex-1 py-2.5 bg-emerald-500 text-white font-bold text-xs rounded-lg disabled:opacity-50 shadow-md"
+                >
+                  {actionLoading === sub.id ? '...' : 'Valider & Payer'}
+                </button>
               </div>
             </div>
-          )
-        })
+          ))}
+        </div>
       )}
-    </div>
+    </main>
   )
 }

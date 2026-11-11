@@ -1,5 +1,4 @@
 'use client'
-
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -14,21 +13,19 @@ export default function AdminWithdrawalsPage() {
     async function load() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return router.push('/login')
-
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
-      if (!profile || (profile.role !== 'admin' && !profile.is_admin)) return router.push('/dashboard')
-
+      const { data: prof } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+      if (!prof || (prof.role !== 'admin' && !prof.is_admin)) return router.push('/dashboard')
       setLoading(false)
     }
     load()
   }, [])
 
-  if (loading) return <div className="text-center py-20 text-slate-500">Chargement...</div>
+  if (loading) return <div className="p-20 text-center text-slate-500">Chargement...</div>
 
   return (
-    <div>
-      <h2 className="text-xl font-black text-slate-900 mb-4">💸 Retraits</h2>
+    <main className="p-4 md:p-6 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-black text-slate-900 mb-6">Retraits</h1>
       <WithdrawalAdminSection />
-    </div>
+    </main>
   )
 }
